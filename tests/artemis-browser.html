@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Artemis II integration checks</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+<style>body{background:#071223;color:#dbeaff;font:16px system-ui;padding:24px}li{margin:12px 0}.fail{color:#ff8b80}.pass{color:#8de5b3}#mission-overlay,canvas{display:none}</style>
+<h1>Artemis II integration checks</h1><p id="summary" role="status">Running…</p><ol id="results"></ol><div id="mission-overlay" hidden></div><canvas id="controls"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { ArtemisMission } from '../js/mission/artemis-mission.js';
+import { SolarSystemView } from '../js/solar-system-view.js';
+const assert=(v,m)=>{if(!v)throw Error(m)};
+const data=await(await fetch('../assets/mission/artemis-ii.json')).json();
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1.8,.08,260);camera.position.set(0,46,86);
+const controls=new OrbitControls(camera,document.querySelector('canvas'));
+const earthOrbit=new THREE.Object3D();earthOrbit.rotation.y=1.7;scene.add(earthOrbit);
+const earthRoot=new THREE.Group();earthRoot.position.x=19;earthRoot.rotation.z=.41;earthOrbit.add(earthRoot);
+const earthMesh=new THREE.Mesh(new THREE.SphereGeometry(.9,12,8),new THREE.MeshBasicMaterial());earthRoot.add(earthMesh);
+const moonOrbit=new THREE.Group();moonOrbit.rotation.set(0,.7,.09);earthRoot.add(moonOrbit);
+const moonRoot=new THREE.Group();moonRoot.position.x=2.75;moonOrbit.add(moonRoot);
+const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(.28,12,8),new THREE.MeshBasicMaterial());moonRoot.add(moonMesh);
+const moonPath=new THREE.Object3D();earthRoot.add(moonPath);
+const view={scene,camera,controls,available:true,renderer:{render(){}},showOrbits:true,container:{clientHeight:560},currentTarget:new THREE.Vector3(),focusOffset:new THREE.Vector3(),initialTarget:new THREE.Vector3(),initialCameraPosition:camera.position.clone(),bodies:new Map([
+ ['Earth',{name:'Earth',root:earthRoot,mesh:earthMesh,orbitPivot:earthOrbit,rotationPeriod:.997,orbitPeriod:1,radius:.9}],
+ ['Moon',{name:'Moon',root:moonRoot,mesh:moonMesh,isMoon:true,moonOrbit,orbit:moonPath,radius:.28}]
+])};
+view.updateCamera=SolarSystemView.prototype.updateCamera;view.focusBody=SolarSystemView.prototype.focusBody;
+const mission=new ArtemisMission(view,data);view.artemis=mission;
+const step=(dt=1/60,speed=1,playing=true)=>SolarSystemView.prototype.update.call(view,dt,speed,playing);
+const state=()=>[earthOrbit.rotation.y,earthMesh.rotation.y,moonOrbit.rotation.y,moonMesh.rotation.y,...moonRoot.position.toArray()];
+let passed=0,failed=0;async function check(name,run){const li=document.createElement('li');try{await run();li.textContent='PASS · '+name;li.className='pass';passed++;}catch(e){li.textContent='FAIL · '+name+': '+e.message;li.className='fail';failed++;}document.querySelector('#results').append(li);}
+await check('OFF: original Earth and Moon orbit updates run',()=>{let a=state();step(.2);let b=state();assert(b[0]>a[0]&&b[2]>a[2],'host orbits stopped');});
+await check('ON leaves hierarchy, transforms, textures, and orbit visibility untouched',()=>{const a=state(),mat=moonMesh.material;mission.enable();assert(JSON.stringify(a)===JSON.stringify(state()),'celestial transform changed');assert(moonRoot.parent===moonOrbit&&moonMesh.material===mat&&moonPath.visible,'Moon changed');});
+await check('ON uses the exact same host angular rates as OFF',()=>{const a=state();for(let i=0;i<120;i++)step(1/60);const b=state();assert(Math.abs(b[0]-a[0]-2*Math.PI*2/16)<1e-10,'Earth rate');assert(Math.abs(b[2]-a[2]-2*Math.PI*2/2.7)<1e-10,'Moon rate');assert(mission.progress>0,'Orion stopped');});
+await check('seek never resets Earth or Moon; route stays Earth-relative at seven phases',()=>{for(const p of [0,.12,.28,.5,.62,.8,1]){const a=JSON.stringify(state());mission.seek(p);mission.update(0,1,true);assert(JSON.stringify(state())===a,'seek changed planets');assert(mission.group.position.distanceTo(earthRoot.getWorldPosition(new THREE.Vector3()))<1e-10,'Earth detached');assert(mission.group.localToWorld(mission.orion.group.position.clone()).distanceTo(mission.worldShip)<1e-10,'Orion detached');}});
+await check('Orion departs Earth, meets the original moving Moon, and returns',()=>{mission.seek(0);mission.update(0,1,true);const start=mission.worldShip.distanceTo(mission.earthWorld);for(const angle of [0,.7,2.5,5.9]){moonOrbit.rotation.y=angle;mission.setCamera('flyby');mission.update(0,1,true);const d=mission.worldShip.distanceTo(mission.worldMoon);assert(d>=.639&&d<1,'flyby misses moving Moon: '+d);const outward=mission.worldShip.clone().sub(mission.worldMoon).dot(mission.worldMoon.clone().sub(mission.earthWorld));assert(outward>0,'not far side');}mission.seek(1);mission.update(0,1,true);assert(start<1.3&&mission.worldShip.distanceTo(mission.earthWorld)<1,'departure/arrival disconnected');});
+await check('no duplicate celestial meshes or Moon-at-flyby label exist',()=>{assert(!mission.ghost&&document.querySelectorAll('.mission-tag').length===3,'duplicate Moon');assert(!mission.group.getObjectById(moonRoot.id),'Moon reparented');});
+await check('mission Pause holds Orion replay only; Earth and Moon keep moving',()=>{mission.seek(.4);mission.playing=false;mission.update(0,1,true);const a=state(),p=mission.progress,local=mission.orion.group.position.clone(),q=mission.group.quaternion.clone();step(.2);assert(mission.progress===p&&local.distanceTo(mission.orion.group.position)===0&&q.angleTo(mission.group.quaternion)<1e-7,'Orion replay moved');assert(state()[0]>a[0]&&state()[2]>a[2],'mission pause froze planets');});
+await check('global Pause and 0x hold every orbital/replay clock',()=>{mission.playing=true;for(const [speed,playing]of[[1,false],[0,true]]){const a=JSON.stringify(state()),p=mission.progress;step(.2,speed,playing);assert(a===JSON.stringify(state())&&mission.progress===p,'global pause conflict');}});
+await check('mission speed changes only replay speed',()=>{mission.seek(.4);mission.speed=4;const a=state();step(.3);assert(Math.abs(mission.progress-.41)<1e-10,'replay speed');assert(Math.abs(state()[2]-a[2]-.3*Math.PI*2/2.7)<1e-10,'Moon speed changed');mission.speed=1;});
+await check('all mission cameras preserve playback and track without snapping',()=>{for(const mode of ['overview','follow','flyby','return']){mission.playing=true;const before=camera.position.clone();mission.setCamera(mode);assert(camera.position.distanceTo(before)<1e-10&&mission.playing,'camera snapped/paused');step(.02);assert(mission.playing,'camera stopped mission');}mission.setCamera('follow');mission.transitioning=false;const offset=new THREE.Vector3(2,1,3);camera.position.copy(mission.worldShip).add(offset);controls.target.copy(mission.worldShip);controls.dispatchEvent({type:'start'});step(.01);assert(camera.position.clone().sub(mission.worldShip).distanceTo(offset)<1e-8,'follow drift');});
+await check('existing Earth and Moon Focus cameras continue following host motion',()=>{for(const name of ['Earth','Moon']){view.selectedName=name;view.focusBody(name);step(.1);const target=view.bodies.get(name).root.getWorldPosition(new THREE.Vector3());assert(controls.target.distanceTo(target)<1e-10,'Focus lost moving body');assert(!mission.cameraMode,'camera owners conflict');}});
+await check('path hide/show and OFF preserve lunar orbit preference without orbital jump',()=>{mission.setTrajectory(false);assert(!mission.path.visible&&!mission.trail.visible,'path visible');mission.setTrajectory(true);view.showOrbits=false;moonPath.visible=false;const a=JSON.stringify(state()),pose=camera.position.clone();mission.disable();assert(a===JSON.stringify(state())&&moonRoot.parent===moonOrbit&&!moonPath.visible,'OFF changed Moon');assert(camera.position.distanceTo(pose)===0,'OFF camera snapped');assert(!mission.group.visible&&document.querySelector('#mission-overlay').hidden,'OFF presentation');step(.1);assert(a!==JSON.stringify(state()),'OFF stopped host');});
+await check('repeat toggles and disposal never duplicate or dispose celestial objects',()=>{let disposed=false;moonMesh.geometry.addEventListener('dispose',()=>disposed=true);for(let i=0;i<5;i++){const a=JSON.stringify(state());mission.enable();mission.disable();assert(a===JSON.stringify(state()),'toggle orbital jump');}assert(document.querySelectorAll('.mission-tag').length===3,'duplicate labels');mission.dispose();assert(!disposed&&moonRoot.parent===moonOrbit&&!scene.children.includes(mission.group),'celestial disposal');});
+document.querySelector('#summary').textContent=passed+' passed · '+failed+' failed';
+</script></html>

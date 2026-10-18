@@ -363,7 +363,7 @@ export class SolarSystemView {
 
   updateCamera(delta) {
     if (!this.focusTarget || !this.focusPosition) return;
-    if (this.followSelected && this.selectedName) {
+    if (this.selectedName && (this.followSelected || this.focusTarget)) {
       const selected = this.bodies.get(this.selectedName);
       if (selected) {
         const worldPosition = new THREE.Vector3();
@@ -373,10 +373,19 @@ export class SolarSystemView {
       }
     }
     const alpha = 1 - Math.exp(-CAMERA_LERP_SPEED * Math.min(delta, 0.1));
-    this.currentTarget.lerp(this.focusTarget, alpha);
-    this.controls.target.lerp(this.focusTarget, alpha);
-    this.camera.position.lerp(this.focusPosition, alpha);
-    if (!this.followSelected && this.camera.position.distanceTo(this.focusPosition) < 0.03 && this.controls.target.distanceTo(this.focusTarget) < 0.03) {
+    if (this.selectedName && this.bodies.has(this.selectedName)) {
+      // Keep the camera centered on the moving planet.
+      this.currentTarget.copy(this.focusTarget);
+      this.controls.target.copy(this.focusTarget);
+      this.camera.position.copy(this.focusPosition);
+    } else {
+      this.currentTarget.lerp(this.focusTarget, alpha);
+      this.controls.target.lerp(this.focusTarget, alpha);
+      this.camera.position.lerp(this.focusPosition, alpha);
+    }
+    if (!this.selectedName && !this.followSelected &&
+    this.camera.position.distanceTo(this.focusPosition) < 0.03 &&
+    this.controls.target.distanceTo(this.focusTarget) < 0.03) {
       this.focusTarget = null;
       this.focusPosition = null;
     }
@@ -386,14 +395,14 @@ export class SolarSystemView {
     if (!this.available) return;
     if (isPlaying) {
       this.bodies.forEach((body) => {
-        if (body.isMoon || (body.name === 'Earth' && this.artemis?.active)) return;
+        if (body.isMoon) return;
         const days = Math.max(Math.abs(body.rotationPeriod), 0.2);
         body.mesh.rotation.y += delta * speed * TAU / (AXIAL_ROTATION_SECONDS_PER_EARTH_DAY * days) * Math.sign(body.rotationPeriod || 1);
         body.root.children.filter((child) => child.userData.cloudLayer).forEach((clouds) => { clouds.rotation.y += delta * speed * 0.45; });
         if (body.orbitPivot) body.orbitPivot.rotation.y += delta * speed * TAU / (ORBIT_SECONDS_PER_EARTH_YEAR * body.orbitPeriod);
       });
       const moon = this.bodies.get('Moon');
-      if (moon?.moonOrbit && !this.artemis?.active) {
+      if (moon?.moonOrbit) {
         moon.moonOrbit.rotation.y += delta * speed * TAU / 2.7;
         moon.mesh.rotation.y = -moon.moonOrbit.rotation.y;
       }
@@ -402,6 +411,7 @@ export class SolarSystemView {
     if (this.artemis?.active) this.artemis.update(delta, speed, isPlaying);
     if (!this.artemis?.active || !this.artemis.cameraMode) this.updateCamera(delta);
     this.controls.update();
+    if (this.artemis?.active) this.artemis.updateLabels();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -424,7 +434,7 @@ export class SolarSystemView {
 
   disposeArtemis() { this.artemisRequested = false; this.artemis?.dispose(); this.artemis = null; }
 
-  setOrbitsVisible(isVisible) { this.showOrbits = isVisible; this.bodies.forEach((body) => { if (body.orbit) body.orbit.visible = isVisible && !(body.isMoon && this.artemis?.active); }); }
+  setOrbitsVisible(isVisible) { this.showOrbits = isVisible; this.bodies.forEach((body) => { if (body.orbit) body.orbit.visible = isVisible; }); }
   getSelectedName() { return this.selectedName; }
   getBodyNames() { return BODY_ORDER.filter((name) => this.bodies.has(name)); }
   reset() { this.returnToOverview(); this.camera.position.copy(this.initialCameraPosition); this.controls.target.copy(this.initialTarget); this.currentTarget.copy(this.initialTarget); this.controls.update(); if (this.artemis?.active) this.artemis.restart(); }

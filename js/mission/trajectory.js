@@ -9,6 +9,24 @@ export const unit = (a) => { const n = norm(a) || 1; return a.map((v) => v / n);
 export const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 export const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, v));
 
+// Educational adaptation only: preserve the source curve's shape and single flyby,
+// compress it to the host Moon's radius, and keep enlarged models clear of surfaces.
+// The renderer rotates this frame with the existing lunar hierarchy, not a new clock.
+export function integratedPosition(position, sourceMoonRadius, moonRadius, progress, out = new Array(3)) {
+  const scale = moonRadius / sourceMoonRadius;
+  for (let i = 0; i < 3; i++) out[i] = position[i] * scale;
+  const floor = progress > 0.94 ? 1.24 - 0.29 * ((progress - 0.94) / 0.06) : 1.24;
+  let r = Math.hypot(...out);
+  if (r < floor) for (let i = 0; i < 3; i++) out[i] *= floor / (r || 1);
+  const dx = out[0] - moonRadius, dy = out[1], dz = out[2];
+  r = Math.hypot(dx, dy, dz);
+  if (r < 0.64) {
+    const boost = (0.64 - r) / (r || 1);
+    out[0] += dx * boost; out[1] += dy * boost; out[2] += dz * boost;
+  }
+  return out;
+}
+
 export function chapterKnots(data) {
   return [[0, 0], [0.12, data.first], [0.26, data.tli], [0.30, data.tli + data.tliDuration],
     [0.56, data.flyby - 10800], [0.68, data.flyby + 10800], [0.94, data.last], [1, data.end]];

@@ -1,0 +1,16 @@
+- heading "Artemis II integration checks" [level=1]
+- status: 13 passed · 0 failed
+- list:
+  - listitem: "PASS · OFF: original Earth and Moon orbit updates run"
+  - listitem: PASS · ON leaves hierarchy, transforms, textures, and orbit visibility untouched
+  - listitem: PASS · ON uses the exact same host angular rates as OFF
+  - listitem: PASS · seek never resets Earth or Moon; route stays Earth-relative at seven phases
+  - listitem: PASS · Orion departs Earth, meets the original moving Moon, and returns
+  - listitem: PASS · no duplicate celestial meshes or Moon-at-flyby label exist
+  - listitem: PASS · mission Pause holds Orion replay only; Earth and Moon keep moving
+  - listitem: PASS · global Pause and 0x hold every orbital/replay clock
+  - listitem: PASS · mission speed changes only replay speed
+  - listitem: PASS · all mission cameras preserve playback and track without snapping
+  - listitem: PASS · existing Earth and Moon Focus cameras continue following host motion
+  - listitem: PASS · path hide/show and OFF preserve lunar orbit preference without orbital jump
+  - listitem: PASS · repeat toggles and disposal never duplicate or dispose celestial objects

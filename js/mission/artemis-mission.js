@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { createOrion } from './orion-model.js';
-import { referenceBasis, displayState, physicalState, timeAtProgress, progressAtTime, clamp, PLAYBACK_SECONDS } from './trajectory.js';
+import { referenceBasis, displayState, integratedPosition, timeAtProgress, progressAtTime, clamp, PLAYBACK_SECONDS } from './trajectory.js';
 
 export const MISSION_PHASES = [
   { start: 0, title: 'Launch & initial Earth orbit', text: 'SLS lifts Orion from Earth. This opening segment illustrates launch and early Earth orbit; the local OEM does not cover ascent. The launch rocket is not carried along on the lunar journey.' },
   { start: 0.12, title: 'High Earth orbit & checks', text: 'The crew checks life support, navigation, communications, and spacecraft handling before committing to deep space. Orion and its European Service Module travel together.' },
   { start: 0.26, title: 'Translunar injection', text: 'A service-module engine burn sends Orion out of Earth orbit. The mission then coasts toward the Moon; there is no continuous engine flame.' },
-  { start: 0.30, title: 'Outbound lunar coast', text: 'The Moon moves ahead as Orion travels outward. The complete path is Earth-centred: its far-side arc marks where the Moon will be at the flyby, rather than its position at departure.' },
+  { start: 0.30, title: 'Outbound lunar coast', text: 'The Moon moves ahead as Orion travels outward. The educational route turns with the existing accelerated lunar orbit so Orion meets the moving Moon. Its geometry is adjusted from NASA data, not an exact ephemeris reconstruction.' },
   { start: 0.56, title: 'Lunar far-side flyby', text: 'Orion passes beyond the Moon and bends onto the return leg. A flyby is one passage, not insertion into a sustained lunar orbit, and no lunar landing takes place.' },
   { start: 0.68, title: 'Free-return journey', text: 'The Earth–Moon gravitational geometry bends the spacecraft back toward Earth. Free return does not mean that navigation or small trajectory corrections are unnecessary.' },
   { start: 0.94, title: 'Re-entry & splashdown', text: 'The service module is discarded. The crew capsule leads with its heat shield, slows in the atmosphere, and descends under parachutes. The final descent is an illustration beyond the OEM’s entry-interface endpoint.' },
@@ -24,6 +24,7 @@ export class ArtemisMission {
     this.earthWorld = new THREE.Vector3(); this.target = new THREE.Vector3(); this.previousTarget = new THREE.Vector3();
     this.worldShip = new THREE.Vector3(); this.worldMoon = new THREE.Vector3(); this.offset = new THREE.Vector3();
     this.deltaTarget = new THREE.Vector3(); this.desiredCamera = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0); this.tangent = new THREE.Vector3();
+    this.moonLocal = new THREE.Vector3(); this.routeRotation = new THREE.Quaternion(); this.pathSample = new Array(3);
     this.makePath(); this.makeLabels();
     this.onControlsStart = () => { this.transitioning = false; };
     view.controls.addEventListener('start', this.onControlsStart);
@@ -46,15 +47,15 @@ export class ArtemisMission {
     const trailGeometry = new THREE.BufferGeometry(); trailGeometry.setAttribute('position', new THREE.BufferAttribute(positions.slice(), 3));
     this.trail = new THREE.Line(trailGeometry, new THREE.LineBasicMaterial({ color: 0xffe7a4, depthTest: false })); this.trail.renderOrder = 2; this.group.add(this.trail);
     displayState(this.data, this.basis, this.data.flyby, this.sample, this.scratch);
-    this.flybyMoon = new THREE.Vector3(this.sample[3], this.sample[4], this.sample[5]);
-    this.flybyShip = new THREE.Vector3(this.sample[0], this.sample[1], this.sample[2]);
-    this.ghost = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 10), new THREE.MeshBasicMaterial({ color: 0x9db6cd, wireframe: true, transparent: true, opacity: 0.16, depthWrite: false }));
-    this.ghost.position.copy(this.flybyMoon); this.group.add(this.ghost);
+    this.sourceMoonRadius = Math.hypot(...this.sample.slice(3, 6));
+    this.sourcePositions = positions.slice(); this.displayPositions = positions;
+    this.trail.geometry.setAttribute('position', geometry.getAttribute('position'));
+
   }
 
   makeLabels() {
     this.overlay = document.querySelector('#mission-overlay'); this.labels = [];
-    for (const [id, text] of [['earth', 'Earth'], ['moon', 'Moon · moving'], ['orion', 'Orion · enlarged'], ['flyby', 'Moon at flyby']]) {
+    for (const [id, text] of [['earth', 'Earth'], ['moon', 'Moon · moving'], ['orion', 'Orion · enlarged']]) {
       const label = document.createElement(id === 'orion' ? 'button' : 'span');
       label.className = `mission-tag mission-tag--${id}`; label.textContent = text;
       if (id === 'orion') { label.type = 'button'; label.setAttribute('aria-label', 'Select and follow Orion'); label.addEventListener('click', () => this.setCamera('follow')); }
@@ -64,43 +65,39 @@ export class ArtemisMission {
 
   enable() {
     if (this.active) return;
-    const earth = this.view.bodies.get('Earth'); const moon = this.view.bodies.get('Moon');
-    const clouds = earth.root.children.find((item) => item.userData.cloudLayer);
-    this.saved = { moonParent: moon.root.parent, moonPosition: moon.root.position.clone(), moonQuaternion: moon.root.quaternion.clone(), moonScale: moon.root.scale.clone(), moonSpin: moon.mesh.rotation.y,
-      earthAngle: earth.orbitPivot.rotation.y, earthSpin: earth.mesh.rotation.y, cloudSpin: clouds?.rotation.y || 0,
-      camera: this.view.camera.position.clone(), target: this.view.controls.target.clone(), min: this.view.controls.minDistance, max: this.view.controls.maxDistance };
+    this.saved = { min: this.view.controls.minDistance, max: this.view.controls.maxDistance };
+    if (this.progress >= 1) this.progress = 0;
+    this.playing = true; this.wasPlaying = true; this.catchingUp = false;
     this.active = true; this.group.visible = true; this.overlay.hidden = false;
-    this.group.quaternion.setFromAxisAngle(this.up, this.saved.earthAngle);
-    this.group.add(moon.root); moon.root.quaternion.identity(); moon.root.scale.set(1, 1, 1);
-    moon.orbit.visible = false;
+    this.updateReference(true);
     this.view.focusTarget = null; this.view.focusPosition = null; this.view.followSelected = false;
     this.dirty = true; this.applyState(); this.setCamera('overview'); this.emit();
   }
 
   disable() {
     if (!this.active) return;
+    const ownedCamera = Boolean(this.cameraMode);
     this.active = false; this.group.visible = false; this.overlay.hidden = true; this.cameraMode = null;
-    const moon = this.view.bodies.get('Moon'); this.saved.moonParent.add(moon.root);
-    moon.root.position.copy(this.saved.moonPosition); moon.root.quaternion.copy(this.saved.moonQuaternion); moon.root.scale.copy(this.saved.moonScale); moon.mesh.rotation.y = this.saved.moonSpin;
-    moon.orbit.visible = this.view.showOrbits;
-    this.view.focusTarget = null; this.view.focusPosition = null; this.view.followSelected = false;
-    this.view.camera.position.copy(this.saved.camera); this.view.controls.target.copy(this.saved.target);
-    this.view.controls.minDistance = this.saved.min; this.view.controls.maxDistance = this.saved.max; this.view.controls.update();
+    if (ownedCamera) {
+      this.view.controls.minDistance = this.saved.min; this.view.controls.maxDistance = this.saved.max;
+    }
+    // Keep the current camera pose; returning to overview uses the host's smooth transition.
+
   }
 
-  seek(progress) { this.progress = clamp(progress); this.dirty = true; this.emit(); }
+  seek(progress) { this.progress = clamp(progress); this.catchingUp = false; this.dirty = true; this.emit(); }
   restart() { this.seek(0); this.playing = true; this.setCamera('overview'); this.emit(); }
-  setTrajectory(visible) { this.trajectoryVisible = visible; this.path.visible = visible; this.trail.visible = visible; this.ghost.visible = visible && Math.abs((this.elapsed || 0)-this.data.flyby) > 1800; this.emit(); }
+  setTrajectory(visible) { this.trajectoryVisible = visible; this.path.visible = visible; this.trail.visible = visible; this.emit(); }
   releaseCamera() { this.cameraMode = null; this.emit(); }
 
   setCamera(mode) {
     if (!this.active) return;
-    if (mode === 'flyby') { this.seek(progressAtTime(this.data, this.data.flyby)); this.playing = false; }
-    if (mode === 'return') { this.seek(0.80); this.playing = false; }
+    if (mode === 'flyby') this.seek(progressAtTime(this.data, this.data.flyby));
+    if (mode === 'return') this.seek(0.80);
     this.cameraMode = mode; this.view.focusTarget = null; this.view.focusPosition = null; this.view.followSelected = false;
     this.dirty = true; this.applyState(); this.calculateTarget(); this.previousTarget.copy(this.target);
     const aspectFit = Math.max(1, 1 / this.view.camera.aspect);
-    if (mode === 'overview') this.offset.set(3, 14, 22).multiplyScalar(aspectFit);
+    if (mode === 'overview') this.offset.set(2, 5, 8).multiplyScalar(aspectFit);
     else if (mode === 'flyby') this.offset.set(1.4, 0.9, 1.9).multiplyScalar(aspectFit);
     else if (mode === 'return') this.offset.set(1.5, 3, 7).multiplyScalar(aspectFit * Math.max(1, this.worldShip.distanceTo(this.earthWorld)/7));
     else this.offset.set(0.65, 0.45, 0.9).multiplyScalar(aspectFit);
@@ -109,45 +106,77 @@ export class ArtemisMission {
   }
 
   calculateTarget() {
-    if (this.cameraMode === 'overview') this.target.copy(this.bounds.getCenter(this.target)).applyQuaternion(this.group.quaternion).add(this.earthWorld);
+    if (this.cameraMode === 'overview') this.target.copy(this.earthWorld).lerp(this.worldMoon, 0.5);
     else if (this.cameraMode === 'flyby') this.target.copy(this.worldMoon).lerp(this.worldShip, 0.45);
     else if (this.cameraMode === 'return') this.target.copy(this.worldShip).lerp(this.earthWorld, 0.5);
     else this.target.copy(this.worldShip);
   }
 
-  applyState() {
-    if (!this.active || !this.dirty) return;
-    const time = timeAtProgress(this.data, this.progress); this.elapsed = time;
-    const days = time / 86400; const earth = this.view.bodies.get('Earth'); const moon = this.view.bodies.get('Moon');
-    earth.orbitPivot.rotation.y = this.saved.earthAngle + days * Math.PI * 2 / 365.25;
-    earth.mesh.rotation.y = this.saved.earthSpin + days * Math.PI * 2 / 0.997;
-    for (const child of earth.root.children) if (child.userData.cloudLayer) child.rotation.y = this.saved.cloudSpin + days * Math.PI * 2 / 3.5;
-    earth.root.getWorldPosition(this.earthWorld); this.group.position.copy(this.earthWorld);
-    displayState(this.data, this.basis, time, this.sample, this.scratch);
-    this.orion.group.position.fromArray(this.sample); moon.root.position.fromArray(this.sample, 3);
-    moon.mesh.rotation.y = this.saved.moonSpin + days * Math.PI * 2 / 27.3;
-    displayState(this.data, this.basis, Math.min(this.data.end, time + 2), this.nextSample, this.scratch);
-    if (time >= this.data.end - 2) { displayState(this.data, this.basis, time - 2, this.nextSample, this.scratch); this.tangent.set(this.sample[0]-this.nextSample[0], this.sample[1]-this.nextSample[1], this.sample[2]-this.nextSample[2]); }
-    else this.tangent.set(this.nextSample[0]-this.sample[0], this.nextSample[1]-this.sample[1], this.nextSample[2]-this.sample[2]);
-    this.tangent.normalize(); if (this.progress >= 0.94) this.tangent.negate();
-    this.orion.group.quaternion.setFromUnitVectors(this.up, this.tangent);
+  updateReference(alignRoute = false, delta = 0) {
+    const earth = this.view.bodies.get('Earth'); const moon = this.view.bodies.get('Moon');
+    earth.root.getWorldPosition(this.earthWorld); moon.root.getWorldPosition(this.worldMoon);
+    this.group.position.copy(this.earthWorld);
+    this.moonLocal.copy(this.worldMoon).sub(this.earthWorld);
+    if (alignRoute) {
+      // Read the original lunar hierarchy; never write celestial transforms.
+      moon.root.parent.getWorldQuaternion(this.routeRotation);
+      if (this.catchingUp && delta > 0) {
+        this.group.quaternion.rotateTowards(this.routeRotation, delta * 8);
+        if (this.group.quaternion.angleTo(this.routeRotation) < 0.001) this.catchingUp = false;
+      } else this.group.quaternion.copy(this.routeRotation);
+    }
+    this.group.updateWorldMatrix(true, false);
+  }
+
+  adapt(position, progress, out) {
+    return integratedPosition(position, this.sourceMoonRadius, this.moonLocal.length(), progress, out);
+  }
+
+  applyState(delta = 0) {
+    if (!this.active) return;
+    // Even with Orion paused, the Earth-relative origin and camera follow the host system.
+    this.updateReference(this.playing || this.dirty, delta);
+    if (this.dirty || this.playing) {
+      const time = timeAtProgress(this.data, this.progress); this.elapsed = time;
+      displayState(this.data, this.basis, time, this.sample, this.scratch);
+      this.adapt(this.sample, this.progress, this.pathSample);
+      this.orion.group.position.fromArray(this.pathSample);
+      const next = Math.min(1, this.progress + 0.00001);
+      displayState(this.data, this.basis, timeAtProgress(this.data, next), this.nextSample, this.scratch);
+      this.adapt(this.nextSample, next, this.pathSample);
+      this.tangent.fromArray(this.pathSample).sub(this.orion.group.position);
+      if (this.tangent.lengthSq() > 1e-12) {
+        this.tangent.normalize(); if (this.progress >= 0.94) this.tangent.negate();
+        this.orion.group.quaternion.setFromUnitVectors(this.up, this.tangent);
+      }
+      // Scale the precomputed NASA-inspired route to the ordinary lunar spacing.
+      if (!this.pathAdapted) {
+        for (let i = 0; i < this.count; i++) {
+          this.sample[0] = this.sourcePositions[i*3]; this.sample[1] = this.sourcePositions[i*3+1]; this.sample[2] = this.sourcePositions[i*3+2];
+          this.adapt(this.sample, i/(this.count-1), this.pathSample); this.displayPositions.set(this.pathSample, i*3);
+        }
+        this.path.geometry.attributes.position.needsUpdate = true;
+        this.path.geometry.computeBoundingSphere(); this.trail.geometry.computeBoundingSphere(); this.pathAdapted = true;
+      }
+    }
     this.orion.service.visible = this.progress < 0.94;
     this.orion.solarWings.forEach((wing) => { wing.visible = this.progress >= 0.12 && this.progress < 0.94; });
     this.orion.parachutes.visible = this.progress >= 0.985;
     const index = Math.floor(this.progress * (this.count-1)); this.trail.geometry.setDrawRange(Math.max(0, index-45), Math.min(index, 45)+1);
     this.group.updateWorldMatrix(true, true);
-    this.orion.group.getWorldPosition(this.worldShip); moon.root.getWorldPosition(this.worldMoon);
-    this.ghost.visible = this.trajectoryVisible && Math.abs(time - this.data.flyby) > 1800;
+    this.orion.group.getWorldPosition(this.worldShip);
     this.dirty = false;
   }
 
   update(delta, globalSpeed, globalPlaying) {
     if (!this.active) return;
+    if (this.playing && !this.wasPlaying) this.catchingUp = true;
+    this.wasPlaying = this.playing;
     if (this.playing && globalPlaying && globalSpeed > 0 && this.progress < 1) {
       this.progress = clamp(this.progress + delta * globalSpeed * this.speed / PLAYBACK_SECONDS); this.dirty = true;
       if (this.progress === 1) this.playing = false;
     }
-    this.applyState();
+    this.applyState(delta);
     if (this.cameraMode) {
       this.calculateTarget(); this.deltaTarget.copy(this.target).sub(this.previousTarget);
       this.view.camera.position.add(this.deltaTarget); this.view.controls.target.add(this.deltaTarget); this.previousTarget.copy(this.target);
@@ -167,9 +196,8 @@ export class ArtemisMission {
       if (item.id === 'earth') item.world.copy(this.earthWorld);
       if (item.id === 'moon') item.world.copy(this.worldMoon);
       if (item.id === 'orion') item.world.copy(this.worldShip);
-      if (item.id === 'flyby') this.group.localToWorld(item.world.copy(this.flybyMoon));
       item.world.project(this.view.camera);
-      item.label.hidden = item.world.z < -1 || item.world.z > 1 || Math.abs(item.world.x) > 0.93 || Math.abs(item.world.y) > 0.88 || (item.id === 'flyby' && (!this.ghost.visible || !this.trajectoryVisible));
+      item.label.hidden = item.world.z < -1 || item.world.z > 1 || Math.abs(item.world.x) > 0.93 || Math.abs(item.world.y) > 0.88;
       item.label.style.left = `${(item.world.x + 1) * 50}%`; item.label.style.top = `${(1 - item.world.y) * 50}%`;
     }
   }

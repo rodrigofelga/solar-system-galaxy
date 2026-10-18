@@ -1,0 +1,16 @@
+✔ published states retain their UTC ordering, units, and exact interpolation endpoints (0.8943ms)
+✔ chapter pacing is monotone, invertible, and ends at the documented UTC bookend (2.4248ms)
+✔ mission reference frame is orthonormal and right handed (0.1338ms)
+✔ Orion reaches the moving lunar far side, clears the Moon, and returns to Earth (0.3755ms)
+✔ trajectory remains finite and outside Earth and Moon at 10,001 mission times (10.3415ms)
+✔ all chapter boundaries connect without a position jump (0.1824ms)
+✔ Moon advances independently while full route remains Earth-centred (0.2199ms)
+✔ integrated route clears original-sized bodies and returns to Earth (6.2403ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 80.3995
