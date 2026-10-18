@@ -69,10 +69,12 @@
         <div id="galaxy" class="galaxy-viewport" role="group" aria-label="Interactive 3D Milky Way. Drag to orbit, scroll or pinch to zoom, and right-drag or two-finger drag to pan. Use the controls below to explore structures.">
           <p id="galaxy-fallback" class="webgl-fallback" hidden></p>
           <span class="galaxy-badge">MILKY WAY <span>3D EXPLORER</span></span>
+          <span id="galaxy-scale-badge" class="galaxy-scale-badge" hidden>SAGITTARIUS A* · ENLARGED ILLUSTRATION<br>Gas, light ring, and wind are schematic</span>
         </div>
         <p id="galaxy-status" class="note galaxy-status" role="status">Starting the 3D galactic explorer…</p>
         <div class="controls galaxy-controls" aria-label="Galactic camera and anatomy controls">
           <button type="button" data-galaxy-view="overview">Galaxy overview</button>
+          <button type="button" id="galaxy-black-hole">Explore black hole</button>
           <button type="button" data-galaxy-view="top">Top-down</button>
           <button type="button" data-galaxy-view="edge">Edge-on</button>
           <button type="button" data-galaxy-view="warp">View warp</button>
@@ -88,6 +90,7 @@
           <h2 id="galaxy-info-title"></h2>
           <p id="galaxy-info-description"></p>
           <p id="galaxy-info-fact" class="note"></p>
+          <dl id="galaxy-info-details" class="galaxy-info-details" hidden></dl>
           <a id="galaxy-info-source" target="_blank" rel="noopener noreferrer">Read the research</a>
         </aside>
         <p class="note galaxy-disclaimer">Illustrative model inspired by Milky Way anatomy, Gaia research, and the OGLE Cepheid map. Stars and nebulae are procedurally placed; disk thickness and warp are exaggerated and halo sizes compressed. This is not a Gaia data viewer. <a href="https://www.esa.int/Science_Exploration/Space_Science/Gaia/Fly_through_Gaia_s_3D_map_of_stellar_nurseries" target="_blank" rel="noopener noreferrer">Gaia research</a> · <a href="https://ogle.astrouw.edu.pl/cont/4_main/str/3dgal/" target="_blank" rel="noopener noreferrer">Galactic warp research</a></p>

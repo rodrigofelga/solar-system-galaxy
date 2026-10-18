@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GALACTIC_FEATURES } from './data/galactic-features.js';
+import { GalacticBlackHole } from './galactic-black-hole.js';
 
 const TAU = Math.PI * 2;
 const OVERVIEW = [0, 65, 83];
@@ -86,6 +87,7 @@ export class GalaxyView {
           gl_FragColor = vec4(vColor, a * uOpacity); }`,
     });
     const cloud = new THREE.Points(geometry, material);
+    cloud.userData.baseOpacity = opacity;
     this.scene.add(cloud);
     return cloud;
   }
@@ -142,6 +144,8 @@ export class GalaxyView {
     this.scene.add(this.orbit);
     this.sun = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffe6a4 }));
     this.scene.add(this.sun);
+    this.blackHole = new GalacticBlackHole();
+    this.scene.add(this.blackHole.group);
     this.highlight = new THREE.Mesh(new THREE.RingGeometry(0.65, 0.78, 48), new THREE.MeshBasicMaterial({ color: 0x8cddff, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthTest: false }));
     this.highlight.visible = false;
     this.scene.add(this.highlight);
@@ -168,6 +172,7 @@ export class GalaxyView {
     });
     this.selector.addEventListener('change', () => { if (this.selector.value) this.selectFeature(this.selector.value); });
     document.querySelectorAll('[data-galaxy-view]').forEach((button) => button.addEventListener('click', () => this.setView(button.dataset.galaxyView)));
+    document.querySelector('#galaxy-black-hole').addEventListener('click', () => this.selectFeature('black-hole'));
     this.tourButton = document.querySelector('#galaxy-tour');
     this.tourButton.addEventListener('click', () => {
       if (!this.available) return;
@@ -203,12 +208,15 @@ export class GalaxyView {
   }
 
   closePanel() {
+    const wasBlackHoleCloseup = this.blackHole?.closeup;
     document.querySelector('#galaxy-info').hidden = true;
     this.selected = null;
+    this.setBlackHoleFocus(false);
     if (this.highlight) this.highlight.visible = false;
     this.selector.value = '';
     this.anchors.forEach(({ button }) => button.setAttribute('aria-pressed', 'false'));
     this.stopTour();
+    if (wasBlackHoleCloseup) this.setView('overview');
   }
 
   bindPicking() {
@@ -249,11 +257,24 @@ export class GalaxyView {
     if (!touring) this.stopTour();
     this.viewPreset = null;
     this.selected = id;
+    this.setBlackHoleFocus(id === 'black-hole');
     this.selector.value = id;
     document.querySelector('#galaxy-info-title').textContent = feature.label;
     document.querySelector('#galaxy-info-scale').textContent = feature.scale;
     document.querySelector('#galaxy-info-description').textContent = feature.description;
     document.querySelector('#galaxy-info-fact').textContent = feature.fact;
+    const details = document.querySelector('#galaxy-info-details');
+    details.replaceChildren(...(feature.details || []).map((item) => {
+      const wrapper = document.createElement('div');
+      const term = document.createElement('dt'); term.textContent = item.label;
+      const definition = document.createElement('dd'); definition.append(`${item.text} `);
+      const link = document.createElement('a');
+      link.href = item.source; link.textContent = item.sourceLabel;
+      link.target = '_blank'; link.rel = 'noopener noreferrer';
+      definition.append(link); wrapper.append(term, definition);
+      return wrapper;
+    }));
+    details.hidden = !feature.details;
     const source = document.querySelector('#galaxy-info-source');
     source.href = feature.source; source.textContent = feature.sourceLabel;
     document.querySelector('#galaxy-info').hidden = false;
@@ -265,13 +286,16 @@ export class GalaxyView {
     }
     if (focus) {
       const target = id === 'dark-halo' ? new THREE.Vector3() : this.anchors.get(id).position;
-      this.transition = { position: target.clone().add(new THREE.Vector3(...(feature.offset || [8, 13, 22]))), target: target.clone() };
+      const offset = new THREE.Vector3(...(feature.offset || [8, 13, 22]));
+      if (id === 'black-hole') offset.multiplyScalar(Math.max(1, 1 / this.camera.aspect));
+      this.transition = { position: target.clone().add(offset), target: target.clone() };
     }
   }
 
   setView(view) {
     if (!this.available) return;
     this.stopTour();
+    this.setBlackHoleFocus(false);
     this.viewPreset = view;
     this.transition = { position: this.presetPosition(view), target: new THREE.Vector3() };
     this.status.textContent = view === 'edge' || view === 'warp' ? 'Disk thickness and outer warp are exaggerated for visibility. Drag to explore from any angle.' : 'Drag to orbit · scroll to zoom · right-drag to pan · click a label to explore';
@@ -280,6 +304,14 @@ export class GalaxyView {
   presetPosition(view) {
     const positions = { overview: OVERVIEW, top: [0, 125, 0.01], edge: [0, 6, 125], warp: [95, 15, 60] };
     return new THREE.Vector3(...(positions[view] || OVERVIEW)).multiplyScalar(Math.max(1, 1.25 / this.camera.aspect));
+  }
+
+  setBlackHoleFocus(enabled) {
+    this.blackHole?.setCloseup(enabled);
+    this.container.classList.toggle('black-hole-closeup', enabled);
+    const badge = document.querySelector('#galaxy-scale-badge');
+    badge.hidden = !enabled;
+    this.status.textContent = enabled ? 'Sagittarius A* close-up · greatly enlarged · drag to orbit the gas disk · Galaxy overview returns to the full galaxy' : 'Drag to orbit · scroll to zoom · right-drag to pan · click a label to explore';
   }
 
   stopTour() {
@@ -300,10 +332,10 @@ export class GalaxyView {
     if (!this.available) return;
     if (isPlaying) this.phase += delta * speed * 0.105;
     this.updateSun();
-    this.orbit.visible = this.showOrbit;
+    this.orbit.visible = this.showOrbit && !this.blackHole.closeup;
     if (this.tourTime !== null && isPlaying) {
       this.tourTime += delta * speed;
-      const stops = ['disk', 'bar', 'bulge', 'arms', 'nurseries', 'sun', 'thick-disk', 'medium', 'warp', 'halo', 'dark-halo'];
+      const stops = ['disk', 'bar', 'bulge', 'black-hole', 'arms', 'nurseries', 'sun', 'thick-disk', 'medium', 'warp', 'halo', 'dark-halo'];
       const step = Math.floor(this.tourTime / 7);
       if (step >= stops.length) { this.stopTour(); this.setView('overview'); }
       else if (step !== this.tourStep) { this.tourStep = step; this.selectFeature(stops[step], true, true); }
@@ -315,23 +347,29 @@ export class GalaxyView {
       if (this.camera.position.distanceTo(this.transition.position) < 0.02 && this.controls.target.distanceTo(this.transition.target) < 0.02) this.transition = null;
     }
     this.controls.update(); this.camera.updateMatrixWorld();
+    this.blackHole.update(isPlaying ? delta * speed : 0, this.camera, this.container.clientHeight * this.renderer.getPixelRatio());
+    this.clouds.forEach((cloud) => {
+      const targetOpacity = cloud.userData.baseOpacity * (this.blackHole.closeup ? 0.003 : 1);
+      cloud.material.uniforms.uOpacity.value += (targetOpacity - cloud.material.uniforms.uOpacity.value) * (1 - Math.exp(-delta * 5));
+    });
     const occupied = [];
     // Selected labels win collisions; the selector always exposes every structure.
     const ordered = [...this.anchors].sort(([a], [b]) => Number(b === this.selected) - Number(a === this.selected));
     ordered.forEach(([id, { button, position }]) => {
       const p = position.clone().project(this.camera);
-      button.hidden = !this.labelsVisible || p.z < -1 || p.z > 1 || Math.abs(p.x) > 0.94 || Math.abs(p.y) > 0.9 || (id === 'dark-halo' && !this.darkHalo.visible);
+      button.hidden = !this.labelsVisible || (this.blackHole.closeup && id !== 'black-hole') || p.z < -1 || p.z > 1 || Math.abs(p.x) > 0.94 || Math.abs(p.y) > 0.9 || (id === 'dark-halo' && !this.darkHalo.visible);
       if (button.hidden) return;
       const x = (p.x + 1) * this.container.clientWidth / 2;
       const y = (1 - p.y) * this.container.clientHeight / 2;
+      const labelY = id === 'black-hole' ? y - (this.blackHole.closeup ? 105 : 34) : y;
       const halfWidth = button.offsetWidth / 2;
       const halfHeight = button.offsetHeight / 2;
-      const box = { left: x - halfWidth - 4, right: x + halfWidth + 4, top: y - halfHeight - 3, bottom: y + halfHeight + 3 };
+      const box = { left: x - halfWidth - 4, right: x + halfWidth + 4, top: labelY - halfHeight - 3, bottom: labelY + halfHeight + 3 };
       button.hidden = box.left < 4 || box.right > this.container.clientWidth - 4 || occupied.some((other) => box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top);
       if (!button.hidden) occupied.push(box);
-      button.style.left = `${x}px`; button.style.top = `${y}px`;
+      button.style.left = `${x}px`; button.style.top = `${labelY}px`;
     });
-    this.highlight.visible = Boolean(this.selected && this.selected !== 'dark-halo');
+    this.highlight.visible = Boolean(this.selected && this.selected !== 'dark-halo' && this.selected !== 'black-hole');
     if (this.highlight.visible) {
       this.highlight.position.copy(this.anchors.get(this.selected).position);
       this.highlight.quaternion.copy(this.camera.quaternion);
