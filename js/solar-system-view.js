@@ -39,7 +39,7 @@ export class SolarSystemView {
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this.renderer.toneMappingExposure = 1.1;
+      this.renderer.toneMappingExposure = 0.65;
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       this.renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -73,7 +73,7 @@ export class SolarSystemView {
 
       stage = 'building the Solar System scene';
       this.scene.add(new THREE.HemisphereLight(0x99b7e0, 0x05070c, 0.22));
-      this.sunLight = new THREE.PointLight(0xfff0c2, 2500, 0, 1.55);
+      this.sunLight = new THREE.PointLight(0xfff0c2, 800, 0, 1.55);
       this.sunLight.castShadow = true;
       this.sunLight.shadow.mapSize.set(1024, 1024);
       this.scene.add(this.sunLight);
@@ -118,6 +118,7 @@ export class SolarSystemView {
   handleContextLoss() {
     console.error('The Solar System Explorer lost its WebGL rendering context.');
     this.available = false;
+    this.artemis?.disable();
     this.fallback.textContent = 'The Solar System Explorer lost its WebGL rendering context. Reload the page and verify that browser hardware acceleration is enabled.';
     this.fallback.hidden = false;
   }
@@ -296,6 +297,7 @@ export class SolarSystemView {
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
+    if (this.artemis?.active && this.artemis.pick(this.raycaster)) return;
     const hit = this.raycaster.intersectObjects(this.pickableMeshes, false)[0];
     if (hit) this.selectBody(hit.object.userData.bodyName, true);
   }
@@ -315,6 +317,7 @@ export class SolarSystemView {
   }
 
   focusBody(name, earthMoon = false) {
+    this.artemis?.releaseCamera();
     const body = this.bodies.get(name);
     if (!body) return;
     const target = new THREE.Vector3();
@@ -335,6 +338,7 @@ export class SolarSystemView {
   }
 
   setFollowSelected(enabled) {
+    if (enabled) this.artemis?.releaseCamera();
     this.followSelected = Boolean(enabled && this.selectedName);
     if (!this.followSelected) return;
     const selected = this.bodies.get(this.selectedName);
@@ -347,6 +351,7 @@ export class SolarSystemView {
   }
 
   returnToOverview() {
+    this.artemis?.releaseCamera();
     this.followSelected = false;
     this.selectedName = null;
     this.focusTarget = this.initialTarget.clone();
@@ -381,27 +386,47 @@ export class SolarSystemView {
     if (!this.available) return;
     if (isPlaying) {
       this.bodies.forEach((body) => {
-        if (body.isMoon) return;
+        if (body.isMoon || (body.name === 'Earth' && this.artemis?.active)) return;
         const days = Math.max(Math.abs(body.rotationPeriod), 0.2);
         body.mesh.rotation.y += delta * speed * TAU / (AXIAL_ROTATION_SECONDS_PER_EARTH_DAY * days) * Math.sign(body.rotationPeriod || 1);
         body.root.children.filter((child) => child.userData.cloudLayer).forEach((clouds) => { clouds.rotation.y += delta * speed * 0.45; });
         if (body.orbitPivot) body.orbitPivot.rotation.y += delta * speed * TAU / (ORBIT_SECONDS_PER_EARTH_YEAR * body.orbitPeriod);
       });
       const moon = this.bodies.get('Moon');
-      if (moon?.moonOrbit) {
+      if (moon?.moonOrbit && !this.artemis?.active) {
         moon.moonOrbit.rotation.y += delta * speed * TAU / 2.7;
         moon.mesh.rotation.y = -moon.moonOrbit.rotation.y;
       }
     }
     this.sun?.update(delta, isPlaying ? delta * speed : 0, this.camera);
-    this.updateCamera(delta);
+    if (this.artemis?.active) this.artemis.update(delta, speed, isPlaying);
+    if (!this.artemis?.active || !this.artemis.cameraMode) this.updateCamera(delta);
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
 
-  setOrbitsVisible(isVisible) { this.showOrbits = isVisible; this.bodies.forEach((body) => { if (body.orbit) body.orbit.visible = isVisible; }); }
+  async setArtemisEnabled(enabled) {
+    this.artemisRequested = enabled;
+    if (!enabled) { this.artemis?.disable(); return null; }
+    if (!this.available) throw new Error('The Solar System WebGL scene is unavailable');
+    if (!this.artemis) {
+      if (!this.artemisLoading) this.artemisLoading = Promise.all([
+        import('./mission/artemis-mission.js'),
+        fetch('assets/mission/artemis-ii.json').then((response) => { if (!response.ok) throw new Error('The local trajectory file could not load'); return response.json(); }),
+      ]).catch((error) => { this.artemisLoading = null; throw error; });
+      const [module, data] = await this.artemisLoading;
+      if (!this.artemisRequested) return null;
+      if (!this.artemis) this.artemis = new module.ArtemisMission(this, data);
+    }
+    if (!this.artemisRequested) return null;
+    this.artemis.enable(); return this.artemis;
+  }
+
+  disposeArtemis() { this.artemisRequested = false; this.artemis?.dispose(); this.artemis = null; }
+
+  setOrbitsVisible(isVisible) { this.showOrbits = isVisible; this.bodies.forEach((body) => { if (body.orbit) body.orbit.visible = isVisible && !(body.isMoon && this.artemis?.active); }); }
   getSelectedName() { return this.selectedName; }
   getBodyNames() { return BODY_ORDER.filter((name) => this.bodies.has(name)); }
-  reset() { this.returnToOverview(); this.camera.position.copy(this.initialCameraPosition); this.controls.target.copy(this.initialTarget); this.currentTarget.copy(this.initialTarget); this.controls.update(); }
+  reset() { this.returnToOverview(); this.camera.position.copy(this.initialCameraPosition); this.controls.target.copy(this.initialTarget); this.currentTarget.copy(this.initialTarget); this.controls.update(); if (this.artemis?.active) this.artemis.restart(); }
   resize() { if (!this.renderer) return; const { clientWidth: width, clientHeight: height } = this.container; if (!width || !height) return; this.camera.aspect = width / height; this.camera.updateProjectionMatrix(); this.renderer.setSize(width, height, false); }
 }
