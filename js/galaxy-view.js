@@ -364,7 +364,7 @@ export class GalaxyView {
       const labelY = id === 'black-hole'
         ? y - (this.blackHole.closeup ? 105 : 34)
         : id === 'sun'
-          ? y - 22
+          ? y - button.offsetHeight / 2 - 12
           : y;
       const halfWidth = button.offsetWidth / 2;
       const halfHeight = button.offsetHeight / 2;
