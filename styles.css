@@ -26,11 +26,43 @@ p { margin: 0 0 18px; color: #aabbd2; }
 .heading span { color: #9fc4ed; font-size: 12px; text-align: right; }
 
 #galaxy {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
   display: block;
   width: 100%;
-  height: clamp(260px, 48vw, 470px);
+  height: clamp(360px, 54vw, 600px);
   border-radius: 12px;
   background: radial-gradient(ellipse at center, #19223f, #040916 70%);
+}
+
+#galaxy canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+#galaxy canvas:active { cursor: grabbing; }
+.galaxy-badge { position: absolute; top: 18px; left: 20px; color: #eef2ff; font-size: 14px; letter-spacing: .23em; pointer-events: none; text-shadow: 0 2px 8px #000; }
+.galaxy-badge span { display: block; margin-top: 6px; font-size: 9px; color: #8faecb; letter-spacing: .18em; }
+.galaxy-label { position: absolute; z-index: 1; transform: translate(-50%, -50%); padding: 5px 8px; min-height: 32px; font-size: 11px; color: #d5e8ff; background: rgba(5, 13, 27, .82); border: 1px solid #486580; border-radius: 20px; white-space: nowrap; box-shadow: 0 2px 10px #0008; }
+.galaxy-label::before { content: ''; display: inline-block; width: 5px; height: 5px; margin-right: 6px; border-radius: 50%; background: #8bd7f7; }
+.galaxy-label[aria-pressed="true"] { border-color: #ffc976; color: #ffdfab; background: #342715; }
+.galaxy-label[hidden] { display: none; }
+.galaxy-status { margin: 10px 4px 12px; }
+.galaxy-controls { gap: 8px; }
+.galaxy-controls button { font-size: 12px; min-height: 38px; }
+.galaxy-controls label { font-size: 12px; }
+.galaxy-info { position: relative; margin-top: 14px; padding: 20px; border: 1px solid #35577d; border-radius: 12px; background: linear-gradient(120deg, #10243b, #080f20); }
+.galaxy-info[hidden] { display: none; }
+.galaxy-info h2 { margin: 0 32px 10px 0; font-size: 23px; }
+.galaxy-info p { max-width: 850px; line-height: 1.6; margin-bottom: 10px; }
+.galaxy-info a, .galaxy-disclaimer a { color: #a3d7ff; text-underline-offset: 3px; }
+.galaxy-disclaimer { margin: 12px 4px 0; }
+.galaxy-panel:fullscreen { overflow: auto; border-radius: 0; padding: 20px; background: #030714; }
+.galaxy-panel:fullscreen #galaxy { height: 66vh; }
+@media (max-width: 620px) {
+  #galaxy { height: 400px; }
+  .galaxy-label { font-size: 10px; padding: 5px 7px; min-height: 36px; }
+  .galaxy-controls label { width: 100%; justify-content: space-between; }
+  .galaxy-controls button { flex: 1 1 calc(50% - 8px); }
+  .galaxy-info { padding: 16px; }
+  .galaxy-panel:fullscreen { padding: 10px; }
 }
 
 .solar-system {
@@ -77,7 +109,7 @@ button {
   color: #fff;
 }
 button:hover { background: #2a4774; }
-button:focus-visible, input:focus-visible { outline: 3px solid #8cc9ff; outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #8cc9ff; outline-offset: 2px; }
 label { display: flex; align-items: center; gap: 8px; min-height: 42px; color: #d7e7fb; }
 input, select { accent-color: #78b9ff; }
 select { max-width: 180px; min-height: 36px; padding: 6px; border: 1px solid #425c82; border-radius: 7px; background: #112442; color: #fff; }

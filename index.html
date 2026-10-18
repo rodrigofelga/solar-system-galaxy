@@ -61,12 +61,36 @@
       <h1>Our Journey Through the Milky Way</h1>
       <p>The Sun travels around the galaxy while the planets orbit and rotate with it.</p>
 
-      <section class="panel" aria-labelledby="galaxy-heading">
+      <section id="galaxy-panel" class="panel galaxy-panel" aria-labelledby="galaxy-heading">
         <div class="heading">
-          <strong id="galaxy-heading">Milky Way — galactic view</strong>
-          <span>Top-down illustration</span>
+          <strong id="galaxy-heading">Milky Way — galactic explorer</strong>
+          <span>Interactive 3D anatomy</span>
         </div>
-        <canvas id="galaxy" aria-label="Stylized top-down animation of the Milky Way and the Solar System's galactic orbit"></canvas>
+        <div id="galaxy" class="galaxy-viewport" role="group" aria-label="Interactive 3D Milky Way. Drag to orbit, scroll or pinch to zoom, and right-drag or two-finger drag to pan. Use the controls below to explore structures.">
+          <p id="galaxy-fallback" class="webgl-fallback" hidden></p>
+          <span class="galaxy-badge">MILKY WAY <span>3D EXPLORER</span></span>
+        </div>
+        <p id="galaxy-status" class="note galaxy-status" role="status">Starting the 3D galactic explorer…</p>
+        <div class="controls galaxy-controls" aria-label="Galactic camera and anatomy controls">
+          <button type="button" data-galaxy-view="overview">Galaxy overview</button>
+          <button type="button" data-galaxy-view="top">Top-down</button>
+          <button type="button" data-galaxy-view="edge">Edge-on</button>
+          <button type="button" data-galaxy-view="warp">View warp</button>
+          <button type="button" id="galaxy-tour" aria-pressed="false">Guided tour</button>
+          <button type="button" id="galaxy-labels" aria-pressed="true">Hide labels</button>
+          <button type="button" id="galaxy-halo" aria-pressed="false">Show dark halo</button>
+          <button type="button" id="galaxy-fullscreen">Fullscreen</button>
+          <label for="galaxy-feature">Explore anatomy <select id="galaxy-feature"><option value="">Select a structure</option></select></label>
+        </div>
+        <aside id="galaxy-info" class="galaxy-info" aria-live="polite" hidden>
+          <button type="button" id="galaxy-panel-close" class="panel-close" aria-label="Close galactic information">×</button>
+          <p id="galaxy-info-scale" class="eyebrow"></p>
+          <h2 id="galaxy-info-title"></h2>
+          <p id="galaxy-info-description"></p>
+          <p id="galaxy-info-fact" class="note"></p>
+          <a id="galaxy-info-source" target="_blank" rel="noopener noreferrer">Read the research</a>
+        </aside>
+        <p class="note galaxy-disclaimer">Illustrative model inspired by Milky Way anatomy, Gaia research, and the OGLE Cepheid map. Stars and nebulae are procedurally placed; disk thickness and warp are exaggerated and halo sizes compressed. This is not a Gaia data viewer. <a href="https://www.esa.int/Science_Exploration/Space_Science/Gaia/Fly_through_Gaia_s_3D_map_of_stellar_nurseries" target="_blank" rel="noopener noreferrer">Gaia research</a> · <a href="https://ogle.astrouw.edu.pl/cont/4_main/str/3dgal/" target="_blank" rel="noopener noreferrer">Galactic warp research</a></p>
       </section>
 
       <section class="panel" aria-labelledby="solar-heading">

@@ -1,5 +1,17 @@
 # Asset attribution
 
+## Interactive galactic anatomy
+
+The 3D Milky Way uses original procedural point geometry and soft-particle shaders. No reference images, video frames, Gaia stellar catalogue positions, or OGLE catalogue positions are embedded. The supplied anatomy infographic and Gaia illustration informed the visual direction. Particle positions and pink star-forming clusters are schematic; thickness and warp are exaggerated, and halo extents are compressed. The dark matter outline is conceptual, not visible matter or a measured boundary.
+
+The guided tour pauses with the main Pause control and stops when camera navigation begins. The anatomy selector provides keyboard access to every structure, including labels outside the current view.
+
+Educational references:
+
+- [NASA: Galaxy types](https://science.nasa.gov/universe/galaxies/types/) — barred spirals, disks, bulges, stellar populations, and halos.
+- [ESA: Fly through Gaia’s 3D map of stellar nurseries](https://www.esa.int/Science_Exploration/Space_Science/Gaia/Fly_through_Gaia_s_3D_map_of_stellar_nurseries) — local gas and dust mapping, extending 4,000 light-years from the Sun; the explorer does not reproduce this dataset.
+- [OGLE: A three-dimensional map of the Milky Way using classical Cepheid variable stars](https://ogle.astrouw.edu.pl/cont/4_main/str/3dgal/) — evidence for the warped disk.
+
 ## Planet and Sun texture maps
 
 All texture files in `assets/textures/` are stored locally for dependable static GitHub Pages delivery. They are used as equirectangular maps on Three.js sphere geometry; they are not ordinary single-view photographs.
