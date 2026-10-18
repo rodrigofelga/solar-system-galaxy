@@ -320,8 +320,8 @@ export class GalaxyView {
   }
 
   updateSun() {
-    this.sun.position.set(Math.cos(this.phase) * 26, 0.35, Math.sin(this.phase) * 26);
-    this.anchors.get('sun')?.position.copy(this.sun.position);
+  this.sun.position.set(Math.cos(this.phase) * 26, 0.2, Math.sin(this.phase) * 26);
+  this.anchors.get('sun')?.position.copy(this.sun.position);
   }
 
   reset() {
@@ -361,7 +361,11 @@ export class GalaxyView {
       if (button.hidden) return;
       const x = (p.x + 1) * this.container.clientWidth / 2;
       const y = (1 - p.y) * this.container.clientHeight / 2;
-      const labelY = id === 'black-hole' ? y - (this.blackHole.closeup ? 105 : 34) : y;
+      const labelY = id === 'black-hole'
+        ? y - (this.blackHole.closeup ? 105 : 34)
+        : id === 'sun'
+          ? y - 22
+          : y;
       const halfWidth = button.offsetWidth / 2;
       const halfHeight = button.offsetHeight / 2;
       const box = { left: x - halfWidth - 4, right: x + halfWidth + 4, top: labelY - halfHeight - 3, bottom: labelY + halfHeight + 3 };
