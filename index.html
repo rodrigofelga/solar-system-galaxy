@@ -59,6 +59,13 @@
     <script type="module" src="js/main.js" onerror="window.showSolarSystemDiagnostic('The Solar System code could not load. Check your connection and reload the page.')"></script>
   </head>
   <body>
+    <div class="language-selector">
+      <label for="language-select">Language / Idioma:</label>
+      <select id="language-select" aria-label="Select website language">
+        <option value="en">🇨🇦 English</option>
+        <option value="pt-BR">🇧🇷 Português</option>
+      </select>
+    </div>
     <main class="wrap">
       <h1>Our Journey Through the Milky Way</h1>
       <p>The Sun travels around the galaxy while the planets orbit and rotate with it.</p>
@@ -104,11 +111,49 @@
           <span>Interactive 3D Solar System</span>
         </div>
         <div id="solar-system" class="solar-system" role="application" aria-label="Interactive 3D Solar System. Drag to orbit, use the mouse wheel or pinch to zoom, and right-drag to pan.">
+          <div id="mission-overlay" class="mission-overlay" hidden>
+            <div class="mission-hud"><span>ARTEMIS II</span><strong id="mission-hud-phase">Crewed lunar flyby</strong><small>Educational replay · Orion enlarged</small></div>
+            <div class="mission-legend"><span class="legend-outbound">Outbound</span><span class="legend-return">Return</span></div>
+          </div>
           <p id="webgl-fallback" class="webgl-fallback" hidden>
             The Solar System Explorer is starting.
           </p>
         </div>
         <p class="note solar-note">Drag to orbit, scroll or pinch to zoom, and right-drag or two-finger drag to pan. Planet sizes, distances, and animation speeds are magnified for learning and are not to scale.</p>
+        <section id="artemis-panel" class="artemis-panel" aria-labelledby="artemis-title" hidden>
+          <div class="artemis-heading"><div><p class="eyebrow">OPTIONAL MISSION EXPERIENCE</p><h2 id="artemis-title">Around the Moon. Back to Earth.</h2></div><button id="mission-exit" type="button">Exit mission</button></div>
+          <p id="artemis-load-status" role="status" hidden></p>
+          <fieldset id="artemis-controls" disabled>
+            <legend class="sr-only">Artemis II mission playback and camera controls</legend>
+            <div class="mission-transport">
+              <button id="mission-play" type="button" aria-pressed="false">Pause mission</button>
+              <button id="mission-restart" type="button">Restart mission</button>
+              <label for="mission-speed">Mission speed <select id="mission-speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+              <button id="mission-path" type="button" aria-pressed="true">Hide trajectory</button>
+            </div>
+            <label class="mission-scrubber" for="mission-progress"><span>Mission progress</span><input id="mission-progress" type="range" min="0" max="1000" step="1" value="0"><output id="mission-progress-value" for="mission-progress" aria-live="off">0%</output></label>
+            <div class="mission-readout"><span id="mission-clock">Illustrated launch &amp; early orbit</span><span id="mission-global-note"></span></div>
+            <div class="mission-cameras" aria-label="Mission camera views">
+              <button type="button" data-mission-camera="overview" aria-pressed="true">Mission Overview</button>
+              <button type="button" data-mission-camera="follow" aria-pressed="false">Follow Orion</button>
+              <button type="button" data-mission-camera="flyby" aria-pressed="false">Lunar Flyby</button>
+              <button type="button" data-mission-camera="return" aria-pressed="false">Return to Earth</button>
+            </div>
+            <nav id="mission-chapters" class="mission-chapters" aria-label="Jump to a mission phase"></nav>
+          </fieldset>
+          <div class="mission-narrative"><p class="eyebrow">THE JOURNEY</p><h3 id="mission-phase" role="status">Launch &amp; initial Earth orbit</h3><p id="mission-explanation"></p></div>
+          <p class="mission-scale-note">Educational scale: Orion, Earth, and the Moon are enlarged independently. Earth–Moon spacing expands in this mode, and local path clearances are exaggerated. The 120-second replay uses uneven chapter pacing, not real-time motion. Flyby and return camera buttons jump to that chapter and pause.</p>
+          <details class="mission-guide"><summary>Mission guide, sources &amp; scale</summary>
+            <div class="mission-guide-grid">
+              <article><h3>A crewed test flight</h3><p>Artemis II tested Orion’s systems with four people aboard: Reid Wiseman, Victor Glover, Christina Koch, and Jeremy Hansen. A lunar flyby passes the Moon once; an orbital mission remains bound around it, and a landing descends to its surface.</p></article>
+              <article><h3>Orion &amp; SLS</h3><p>The SLS rocket launches Orion. Orion’s crew module carries the astronauts; its European Service Module supplies power, propulsion, and essential consumables. Only the crew capsule returns through Earth’s atmosphere. This original procedural model has no powered-coast flame.</p></article>
+              <article><h3>Trajectory interpretation</h3><p>The storytelling follows NASA’s preflight mission map. Flight segments use an interpolated NASA/JSC OEM created 10 April 2026, including its forecast tail. Launch before the file starts and descent after entry are illustrated. This is not live tracking or a reconstruction of every manoeuvre.</p></article>
+              <article><h3>One mission clock</h3><p>Earth’s orbit, spin, and the computed Moon positions follow the mission timestamp while enabled. Mission pause holds this Earth–Moon system; global Pause also holds the mission. Global and mission speeds multiply. Switching mission mode off restores normal lunar spacing and the original animation rates.</p></article>
+            </div>
+            <p class="mission-links"><a href="https://svs.gsfc.nasa.gov/20412/" target="_blank" rel="noopener noreferrer">NASA mission map</a><a href="https://www.nasa.gov/mission/artemis-ii/" target="_blank" rel="noopener noreferrer">Official Artemis II mission</a><a href="https://www.nasa.gov/missions/artemis/artemis-2/track-nasas-artemis-ii-mission-in-real-time/" target="_blank" rel="noopener noreferrer">NASA ephemeris source</a><a href="https://svs.gsfc.nasa.gov/5632/" target="_blank" rel="noopener noreferrer">Flight-derived NASA visualization</a></p>
+            <p class="note">Reference visualization: NASA/JSC/Goddard; Kim Dongjae and Jonathan North, producer Dan Gallagher. Interactive model and graphics are original educational illustrations, not NASA-produced imagery or a NASA endorsement. Moon positions are computed with Astronomy Engine (Don Cross, MIT); existing lunar texture credits remain in the attribution notes.</p>
+          </details>
+        </section>
       </section>
 
       <aside id="body-panel" class="body-panel" aria-live="polite" hidden>
@@ -142,6 +187,7 @@
           <button id="focus-body" type="button" disabled>Focus selected</button>
           <button id="follow-body" type="button" aria-pressed="false" disabled>Follow selected</button>
           <button id="earth-moon" type="button">Earth &amp; Moon</button>
+          <label class="mission-toggle" for="artemis-toggle"><input id="artemis-toggle" type="checkbox" aria-controls="artemis-panel mission-overlay">Show Artemis II Mission</label>
           <button id="overview" type="button">Full Solar System</button>
           <label for="speed">Animation speed
             <input type="range" id="speed" min="0" max="5" step="0.1" value="1">

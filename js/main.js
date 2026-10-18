@@ -1,6 +1,42 @@
 import { GalaxyView } from './galaxy-view.js';
 import { SolarSystemView } from './solar-system-view.js';
 import { CELESTIAL_BODIES } from './data/celestial-bodies.js';
+import { ArtemisControls } from './mission/artemis-controls.js';
+import { t } from './i18n/translations.js';
+
+let currentLanguage = 'en';
+
+function translate(key) {
+  return t(currentLanguage, key);
+}
+function setLanguage(language) {
+  currentLanguage = language;
+  document.documentElement.lang = language;
+
+  document.querySelector('main h1').textContent =
+    language === 'pt-BR'
+      ? 'Nossa Jornada pela Via Láctea'
+      : 'Our Journey Through the Milky Way';
+
+  document.querySelector('main > p').textContent =
+    language === 'pt-BR'
+      ? 'O Sol viaja pela galáxia enquanto os planetas orbitam e giram com ele.'
+      : 'The Sun travels around the galaxy while the planets orbit and rotate with it.';
+
+  document.querySelector('#solar-heading').textContent =
+    language === 'pt-BR'
+      ? 'Viajando com o Sol'
+      : 'Traveling with the Sun';
+
+  document.querySelector('#galaxy-heading').textContent =
+    language === 'pt-BR'
+      ? 'Via Láctea — Explorador Galáctico'
+      : 'Milky Way — galactic explorer';
+}
+
+document.querySelector('#language-select').addEventListener('change', (event) => {
+  setLanguage(event.target.value);
+});
 
 const elements = {
   galaxy: document.querySelector('#galaxy'), solarHost: document.querySelector('#solar-system'), fallback: document.querySelector('#webgl-fallback'),
@@ -11,6 +47,11 @@ const elements = {
 const state = { isPlaying: true, speed: 1, lastFrameTime: 0, isGalaxyOrbitVisible: true, arePlanetaryOrbitsVisible: true, selectedName: null, following: false };
 const galaxy = new GalaxyView(elements.galaxy);
 const solarSystem = new SolarSystemView(elements.solarHost, elements.fallback, selectBody);
+const missionControls = new ArtemisControls(solarSystem, () => state, () => { state.isPlaying = true; updatePlayButton(); });
+document.querySelector('#artemis-toggle').addEventListener('change', (event) => {
+  if (!event.target.checked) return;
+  state.following = false; elements.follow.textContent = 'Follow selected'; elements.follow.setAttribute('aria-pressed', 'false');
+});
 
 function populateSelector() {
   solarSystem.getBodyNames().forEach((name) => {
@@ -97,5 +138,5 @@ elements.panelMoon.addEventListener('click', () => selectBody('Moon'));
 
 populateSelector();
 new ResizeObserver(() => { galaxy.resize(); solarSystem.resize(); }).observe(document.body);
-function animate(now) { const delta = state.lastFrameTime ? Math.min((now - state.lastFrameTime) / 1000, 0.06) : 0; state.lastFrameTime = now; galaxy.update(delta, state.speed, state.isPlaying); solarSystem.update(delta, state.speed, state.isPlaying); window.requestAnimationFrame(animate); }
+function animate(now) { const delta = state.lastFrameTime ? Math.min((now - state.lastFrameTime) / 1000, 0.06) : 0; state.lastFrameTime = now; galaxy.update(delta, state.speed, state.isPlaying); solarSystem.update(delta, state.speed, state.isPlaying); missionControls.syncGlobal(); window.requestAnimationFrame(animate); }
 window.requestAnimationFrame(animate);
