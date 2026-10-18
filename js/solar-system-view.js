@@ -172,7 +172,7 @@ export class SolarSystemView {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(data.radius, 64, 48), material);
     mesh.castShadow = true; mesh.receiveShadow = true;
     axialPivot.add(mesh);
-    this.addRotationMarker(mesh, data);
+    // Rotation marker removed
     if (data.name === 'Earth') this.addEarthAtmosphere(axialPivot, data.radius);
     if (data.hasRings) this.addSaturnRings(axialPivot, data.radius);
     const orbit = this.createOrbit(data.orbitRadius);
@@ -269,12 +269,6 @@ export class SolarSystemView {
       cloudMaterial.map = texture;
       cloudMaterial.needsUpdate = true;
     }, undefined, (error) => console.warn('Could not load Earth cloud texture; keeping the transparent atmospheric shell.', error));
-  }
-
-  addRotationMarker(mesh, data) {
-    const marker = new THREE.Mesh(new THREE.SphereGeometry(data.radius * 0.1, 12, 8), new THREE.MeshStandardMaterial({ color: new THREE.Color(data.color).offsetHSL(0, 0.1, -0.16), roughness: 0.85 }));
-    marker.position.set(data.radius * 0.89, data.radius * 0.24, 0);
-    mesh.add(marker);
   }
 
   addSaturnRings(parent, radius) {
