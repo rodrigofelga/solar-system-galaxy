@@ -173,7 +173,8 @@ export class ArtemisMission {
     if (this.playing && !this.wasPlaying) this.catchingUp = true;
     this.wasPlaying = this.playing;
     if (this.playing && globalPlaying && globalSpeed > 0 && this.progress < 1) {
-      this.progress = clamp(this.progress + delta * globalSpeed * this.speed / PLAYBACK_SECONDS); this.dirty = true;
+      // The replay has its own clock: the simulation only holds it (Pause), it never rescales it.
+      this.progress = clamp(this.progress + delta * this.speed / PLAYBACK_SECONDS); this.dirty = true;
       if (this.progress === 1) this.playing = false;
     }
     this.applyState(delta);
