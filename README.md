@@ -188,7 +188,7 @@ This project is designed primarily as an interactive educational visualization r
 
 To improve usability and visibility:
 
-- Planetary sizes are exaggerated relative to orbital distances.
+- Planetary sizes are exaggerated relative to orbital distances. Planets use one compressed rule (true radius relative to Earth, raised to the power 0.55), so size order stays true while Mercury remains visible beside Jupiter. The Sun is compressed further.
 - Distances between celestial bodies are not uniformly represented to scale.
 - Planetary orbital and axial rotation speeds are accelerated.
 - Galactic and planetary animations use different illustrative timescales.

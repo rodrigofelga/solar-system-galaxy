@@ -1,0 +1,53 @@
+Space presentation and planet scale: browser checks (Edge, GTX 1050 Ti, 2026-11-01)
+
+overview radius px {"Mercury":3.5,"Venus":6.1,"Earth":5.1,"Mars":3.5,"Jupiter":19.3,"Saturn":16.7,"Uranus":13.1,"Neptune":7.8}
+PASS - Small planets stay at least 2.5 px in radius in the desktop overview - Mercury 3.5, Mars 3.5
+PASS - A near miss beside Mars selects Mars - element CANVAS
+PASS - A click on empty sky selects nothing
+focused diameter / frame height {"Sun":0.55,"Mercury":0.41,"Venus":0.57,"Earth":0.56,"Mars":0.49,"Jupiter":0.56,"Saturn":0.59,"Uranus":0.55,"Neptune":0.55,"Moon":0.22}
+PASS - Focused planets fill 15-60% of frame height - {"Sun":0.55,"Mercury":0.41,"Venus":0.57,"Earth":0.56,"Mars":0.49,"Jupiter":0.56,"Saturn":0.59,"Uranus":0.55,"Neptune":0.55,"Moon":0.22}
+PASS - Selected orbit highlights only that planet; overview clears it
+PASS - Orbit toggle hides and shows every orbit
+PASS - Orbit trail uniform tracks planet angle
+PASS - All sky layers stay inside the far plane at maximum zoom-out
+PASS - Backdrop is not pickable
+PASS - Disclaimer retained
+PASS - No console errors or warnings (desktop)
+PASS - Artemis host values unchanged
+PASS - No console errors or warnings (Artemis)
+PASS - Phone starts further back, inside the zoom limit, with a lighter star count - {"d":139.2838827718412,"max":150,"stars":3968}
+PASS - Phone: a near miss on the Moon side of Earth selects Earth, not the Moon - Earth {"earthPos":{"x":124.7962190264944,"y":417.7633362586426,"r":3.333712812805568},"moonPos":{"x":133.37393600700796,"y":417.28592360812263,"r":1.0262873934720966}}
+PASS - Phone: tap 10 px off Mars selects Mars
+PASS - No console errors or warnings (phone)
+
+17 passed, 0 failed
+
+--- Regression suite
+FAIL · Earth, Moon assets byte-identical to baseline — earth-clouds.png
+PASS · All seven planets and rings have a loaded map; no 4xx responses — Mercury:2048 Venus:2048 Mars:2048 Jupiter:2048 Saturn:2048 Uranus:1024 Neptune:2048
+PASS · Only one speed control set exists in the page 
+PASS · Preset click changes orbital rate immediately and proportionally (Neptune) — ratios 10×=9.9 100×=98.7 0.1×=0.10
+PASS · Axial rotation scales with the same clock and formula — Jupiter 3.82 rad/s, expected 3.79
+PASS · Slider reaches intermediate speed; readout and valuetext update; no preset pressed 
+PASS · Reset speed restores 1× without unpausing or moving camera 
+PASS · Pause freezes orbit, rotation; resume has no jump — Neptune moved 2.5e-4 rad 100 ms after resume
+PASS · Paused: rotate, zoom, pan all work (overview) 
+PASS · Paused + focused planet: rotate, zoom, pan persist and stay centred after resume 
+PASS · High-res map loads on selection, releases on change; low-res kept 
+PASS · Keyboard: tab order reaches dock, Space toggles, focus ring visible 
+PASS · Dock does not intercept canvas outside itself; drag from outside passes under it 
+PASS · Fullscreen: dock inside fullscreen element, works, renderer resizes, Esc restores — [1280,900]
+PASS · Language switch: pt-BR labels, decimal comma; simulation, camera, and speed not reset — Velocidade 0,1×
+PASS · Artemis: mission replay rate unchanged by sim speed; sim capped at 5× with visible notice; legend clear of dock — replay 0.0084/s at 1×, 0.0084/s at 100×; Moon 11.6 rad/s
+PASS · Milky Way explorer still animates, clamped to its designed range — 100× runs galaxy at 5.1× ; 12 labels
+PASS · Selection & panel, Earth-Moon button, overview still work 
+PASS · Frame timing with all planets at 100× (desktop GTX 1050 Ti) — median 13.3 ms, p95 13.4 ms
+PASS · No JS errors or warnings during desktop session 
+PASS · Fallback: blocked textures keep flat colours, no crash, rings stay solid 
+PASS · Fallback: high-res failure keeps standard map 
+PASS · mobile-390: dock fits, targets ≥32 px (≥24 at 320), no overflow, no high-res tier, tap works — dock 12% of viewport height, buttons [36,40]…
+PASS · mobile-390: Artemis legend, HUD clear of dock; capped notice visible — {"legend":false,"out":"block","overlapOut":false}
+PASS · mobile-320: dock fits, targets ≥32 px (≥24 at 320), no overflow, no high-res tier, tap works — dock 15% of viewport height, buttons [33,40]…
+PASS · tablet-768: dock fits, targets ≥32 px (≥24 at 320), no overflow, no high-res tier, tap works — dock 13% of viewport height, buttons [40,40]…
+PASS · tests/artemis-browser.html: all checks — 14 passed · 0 failed
+26 passed 1 failed

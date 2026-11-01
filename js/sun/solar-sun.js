@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { SURFACE_VERTEX, SURFACE_FRAGMENT, CORONA_VERTEX, CORONA_FRAGMENT, PROMINENCE_VERTEX, PROMINENCE_FRAGMENT } from './solar-shaders.js';
+import { SURFACE_VERTEX, SURFACE_FRAGMENT, CORONA_VERTEX, CORONA_FRAGMENT, HALO_FRAGMENT, PROMINENCE_VERTEX, PROMINENCE_FRAGMENT } from './solar-shaders.js';
 
 const CORONA_SPAN = 3.1; // half-width of the corona billboard in solar radii
+const HALO_SPAN = 9; // half-width of the outer light billboard in solar radii
 const QUALITY_PRESETS = [
   { name: 'low', octaves: 3, warp: false, fine: false, loops: 2, streamers: 0 },
   { name: 'medium', octaves: 4, warp: true, fine: false, loops: 4, streamers: 1 },
@@ -67,6 +68,19 @@ export class SolarSun {
     this.corona.renderOrder = 1;
     this.corona.frustumCulled = false;
     this.group.add(this.corona);
+
+    // Drawn in the opaque pass, ahead of every body, so that the glow can never wash out a planet near the Sun.
+    this.halo = new THREE.Mesh(new THREE.PlaneGeometry(radius * HALO_SPAN * 2, radius * HALO_SPAN * 2), new THREE.ShaderMaterial({
+      uniforms: { uSpan: { value: HALO_SPAN } },
+      vertexShader: CORONA_VERTEX,
+      fragmentShader: HALO_FRAGMENT,
+      depthWrite: false,
+      depthTest: false,
+      blending: THREE.AdditiveBlending,
+    }));
+    this.halo.renderOrder = -5;
+    this.halo.frustumCulled = false;
+    this.group.add(this.halo);
 
     this.createProminences();
     this.createMarkers();
@@ -251,6 +265,7 @@ export class SolarSun {
     this.surfaceMaterial.uniforms.uTime.value = this.time;
     this.coronaMaterial.uniforms.uTime.value = this.time;
     this.corona.quaternion.copy(camera.quaternion);
+    this.halo.quaternion.copy(camera.quaternion);
     if (this.exploreMode) this.placeCoronaMarker(camera);
 
     const activity = 0.6 + 0.4 * Math.sin(this.time * 0.05);

@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { PLANETS } from './data/planets.js';
+import { PLANETS, SUN_DISPLAY_RADIUS } from './data/planets.js';
 import { BODY_ORDER, CELESTIAL_BODIES } from './data/celestial-bodies.js';
 import { SolarSun } from './sun/solar-sun.js';
 import { SolarInteraction } from './sun/solar-interaction.js';
+import { SpaceBackdrop } from './space-backdrop.js';
 
 const TAU = Math.PI * 2;
 const ORBIT_SECONDS_PER_EARTH_YEAR = 16;
@@ -16,6 +17,38 @@ const WHITE = new THREE.Color(0xffffff);
 // Sunlight strikes the rings at a shallow angle, so they need more gain than the planet to read as bright as they do.
 const RING_ALBEDO_BOOST = 3;
 const RING_TINT = new THREE.Color(0xf6e7c8);
+const OVERVIEW_CAMERA = new THREE.Vector3(0, 40, 104);
+// Narrow screens start further back, within the zoom limit, so they still show the outer planets' orbits.
+const NARROW_OVERVIEW_ASPECT = 1.7;
+const MAX_OVERVIEW_PULLBACK = 1.25;
+const MOUSE_PICK_MARGIN = 10;
+const TOUCH_PICK_MARGIN = 20;
+const ORBIT_VERTEX = /* glsl */ `
+attribute float aAngle;
+uniform float uRadius;
+varying float vAngle;
+varying float vNear;
+void main(){
+  vAngle = aAngle;
+  vec4 view = modelViewMatrix * vec4(position, 1.0);
+  vNear = clamp((length(cameraPosition) + uRadius + view.z) / (2.0 * uRadius), 0.0, 1.0);
+  gl_Position = projectionMatrix * view;
+}
+`;
+// Each orbit brightens just behind its planet, so the line also shows which way the planet is travelling.
+const ORBIT_FRAGMENT = /* glsl */ `
+uniform float uPlanetAngle;
+uniform float uSelected;
+uniform vec3 uColor;
+uniform vec3 uTrailColor;
+varying float vAngle;
+varying float vNear;
+void main(){
+  float trail = exp(-mod(vAngle + uPlanetAngle, 6.2831853) * 2.1);
+  float alpha = (0.17 + 0.2 * uSelected) * (0.62 + 0.38 * vNear) + trail * 0.62;
+  gl_FragColor = vec4(mix(uColor, uTrailColor, trail), alpha);
+}
+`;
 
 export class SolarSystemView {
   constructor(container, fallback, onSelect) {
@@ -27,7 +60,7 @@ export class SolarSystemView {
     this.pickableMeshes = [];
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
-    this.initialCameraPosition = new THREE.Vector3(0, 46, 86);
+    this.initialCameraPosition = OVERVIEW_CAMERA.clone();
     this.initialTarget = new THREE.Vector3();
     this.currentTarget = new THREE.Vector3();
     this.focusTarget = null;
@@ -86,7 +119,8 @@ export class SolarSystemView {
       this.sunLight.castShadow = true;
       this.sunLight.shadow.mapSize.set(1024, 1024);
       this.scene.add(this.sunLight);
-      this.createStarfield();
+      this.backdrop = new SpaceBackdrop({ compact: this.isCompactDevice(), pixelRatio: this.renderer.getPixelRatio() });
+      this.scene.add(this.backdrop.group);
       this.createSun();
       PLANETS.forEach((planet) => this.createPlanet(planet));
       this.createMoon();
@@ -132,36 +166,16 @@ export class SolarSystemView {
     this.fallback.hidden = false;
   }
 
-  createStarfield() {
-    const count = 2200;
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const color = new THREE.Color();
-    for (let index = 0; index < count; index += 1) {
-      const radius = 105 + Math.random() * 85;
-      const theta = Math.random() * TAU;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const offset = index * 3;
-      positions[offset] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[offset + 1] = radius * Math.cos(phi);
-      positions[offset + 2] = radius * Math.sin(phi) * Math.sin(theta);
-      color.setHSL(0.55 + Math.random() * 0.12, 0.45, 0.7 + Math.random() * 0.25);
-      colors[offset] = color.r; colors[offset + 1] = color.g; colors[offset + 2] = color.b;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    this.scene.add(new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.42, vertexColors: true, sizeAttenuation: true, transparent: true, opacity: 0.88 })));
-  }
+  isCompactDevice() { return window.matchMedia?.('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 640; }
 
   createSun() {
     // Procedural, self-contained Sun (see js/sun/). It is unlit, so the PointLight above still lights the planets.
-    const compact = window.matchMedia?.('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 640;
+    const compact = this.isCompactDevice();
     const requested = new URLSearchParams(window.location.search).get('sunQuality');
     const forcedQuality = { low: 0, medium: 1, high: 2 }[requested] ?? null;
-    this.sun = new SolarSun(3.65, { compact, forcedQuality });
+    this.sun = new SolarSun(SUN_DISPLAY_RADIUS, { compact, forcedQuality });
     this.scene.add(this.sun.group);
-    this.registerBody('Sun', { mesh: this.sun.mesh, root: this.sun.group, rotationPeriod: 25.38, radius: 3.65, orbitPivot: null });
+    this.registerBody('Sun', { mesh: this.sun.mesh, root: this.sun.group, rotationPeriod: 25.38, radius: SUN_DISPLAY_RADIUS, orbitPivot: null });
     this.solarInteraction = new SolarInteraction({ sun: this.sun, camera: this.camera, domElement: this.renderer.domElement, container: this.container });
   }
 
@@ -181,14 +195,15 @@ export class SolarSystemView {
     const material = new THREE.MeshStandardMaterial({ color: data.color, roughness: data.roughness ?? (data.name === 'Earth' ? 0.58 : 0.76), metalness: 0 });
     if (data.albedoGain) this.applyAlbedo(material, data.albedoGain, material.color);
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(data.radius, 64, 48), material);
-    mesh.castShadow = true; mesh.receiveShadow = true;
+    // Only Earth and the Moon eclipse each other. At display sizes, any other planet's shadow would black out whole worlds far beyond it.
+    mesh.castShadow = mesh.receiveShadow = data.name === 'Earth';
     axialPivot.add(mesh);
     // Rotation marker removed
     if (data.name === 'Earth') this.addEarthAtmosphere(axialPivot, data.radius);
     if (data.hasRings) this.addSaturnRings(axialPivot, data.radius, data.albedoGain);
-    const orbit = this.createOrbit(data.orbitRadius);
+    const orbit = this.createPlanetOrbit(data);
     this.scene.add(orbit);
-    this.registerBody(data.name, { mesh, root: axialPivot, rotationPeriod: data.rotationPeriod, orbitPeriod: data.orbitPeriod, radius: data.radius, orbitPivot, orbit, albedoGain: data.albedoGain, textureHigh: data.textureHigh });
+    this.registerBody(data.name, { mesh, root: axialPivot, rotationPeriod: data.rotationPeriod, orbitPeriod: data.orbitPeriod, radius: data.radius, orbitPivot, orbit, orbitUniforms: orbit.material.uniforms, albedoGain: data.albedoGain, textureHigh: data.textureHigh });
     if (data.albedoGain) this.loadPlanetTexture(data.name);
     else this.loadTexture(data.name, material);
   }
@@ -203,7 +218,7 @@ export class SolarSystemView {
     moonAnchor.position.x = 2.75;
     moonOrbit.add(moonAnchor);
     // Adaptive terrain tessellation: lighter mesh on phones/coarse-pointer devices.
-    const compact = window.matchMedia?.('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 640;
+    const compact = this.isCompactDevice();
     const [widthSegments, heightSegments] = compact ? [128, 64] : [320, 160];
     const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xb8b6ad, roughness: 0.92, metalness: 0 });
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.28, widthSegments, heightSegments), moonMaterial);
@@ -369,12 +384,60 @@ export class SolarSystemView {
     }, undefined, (error) => console.warn('Could not load Saturn ring texture; keeping the solid ring.', error));
   }
 
-  createOrbit(radius, color = 0x7692be, opacity = 0.34) {
+  createOrbit(radius, color, opacity) {
     const points = Array.from({ length: 193 }, (_, index) => {
       const angle = index / 192 * TAU;
       return new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
     });
     return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+  }
+
+  createPlanetOrbit({ orbitRadius, color }) {
+    const segments = 256;
+    const positions = new Float32Array((segments + 1) * 3);
+    const angles = new Float32Array(segments + 1);
+    for (let index = 0; index <= segments; index += 1) {
+      const angle = index / segments * TAU;
+      positions.set([Math.cos(angle) * orbitRadius, 0, Math.sin(angle) * orbitRadius], index * 3);
+      angles[index] = angle;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('aAngle', new THREE.BufferAttribute(angles, 1));
+    return new THREE.Line(geometry, new THREE.ShaderMaterial({
+      uniforms: {
+        uRadius: { value: orbitRadius },
+        uPlanetAngle: { value: 0 },
+        uSelected: { value: 0 },
+        uColor: { value: new THREE.Color(0.55, 0.66, 0.85) },
+        uTrailColor: { value: new THREE.Color(color).lerp(WHITE, 0.45) },
+      },
+      vertexShader: ORBIT_VERTEX,
+      fragmentShader: ORBIT_FRAGMENT,
+      transparent: true,
+      depthWrite: false,
+    }));
+  }
+
+  // Small planets are only a few pixels wide in the overview, so a near miss still selects the closest one.
+  nearestBodyOnScreen(clientX, clientY, rect, margin) {
+    const position = new THREE.Vector3();
+    let nearest = null;
+    let nearestGap = margin;
+    this.bodies.forEach((body) => {
+      // From afar the Moon sits almost on top of Earth, so it must be hit directly and cannot steal Earth's near misses.
+      if (body.isMoon) return;
+      body.mesh.getWorldPosition(position);
+      const distance = position.distanceTo(this.camera.position);
+      const radiusPx = body.radius / (distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) * rect.height / 2;
+      position.project(this.camera);
+      if (position.z > 1) return;
+      const x = rect.left + (position.x + 1) / 2 * rect.width;
+      const y = rect.top + (1 - position.y) / 2 * rect.height;
+      const gap = Math.hypot(clientX - x, clientY - y) - radiusPx;
+      if (gap < nearestGap) { nearest = body.name; nearestGap = gap; }
+    });
+    return nearest;
   }
 
   pickBody(event) {
@@ -390,7 +453,8 @@ export class SolarSystemView {
     this.raycaster.setFromCamera(this.pointer, this.camera);
     if (this.artemis?.active && this.artemis.pick(this.raycaster)) return;
     const hit = this.raycaster.intersectObjects(this.pickableMeshes, false)[0];
-    if (hit) this.selectBody(hit.object.userData.bodyName, true);
+    const name = hit?.object.userData.bodyName ?? this.nearestBodyOnScreen(event.clientX, event.clientY, rect, event.pointerType === 'touch' ? TOUCH_PICK_MARGIN : MOUSE_PICK_MARGIN);
+    if (name) this.selectBody(name, true);
   }
 
   selectBody(name, focus = true) {
@@ -402,6 +466,7 @@ export class SolarSystemView {
       const selected = candidate.name === name;
       candidate.mesh.material.emissive?.set(selected ? 0x1b4e72 : 0x000000);
       candidate.mesh.material.emissiveIntensity = selected ? (candidate.albedoGain ? 0.08 : 0.38) : 0;
+      if (candidate.orbitUniforms) candidate.orbitUniforms.uSelected.value = selected ? 1 : 0;
     });
     if (focus) this.focusBody(name);
     this.setDetailBody(name);
@@ -457,7 +522,7 @@ export class SolarSystemView {
     this.focusPosition = this.initialCameraPosition.clone();
     this.controls.minDistance = 4;
     this.controls.maxDistance = 150;
-    this.bodies.forEach((body) => { body.mesh.material.emissive?.set(0x000000); body.mesh.material.emissiveIntensity = 0; });
+    this.bodies.forEach((body) => { body.mesh.material.emissive?.set(0x000000); body.mesh.material.emissiveIntensity = 0; if (body.orbitUniforms) body.orbitUniforms.uSelected.value = 0; });
   }
 
   updateCamera(delta) {
@@ -512,11 +577,13 @@ export class SolarSystemView {
         moon.mesh.rotation.y = -moon.moonOrbit.rotation.y;
       }
     }
+    this.bodies.forEach((body) => { if (body.orbitUniforms) body.orbitUniforms.uPlanetAngle.value = body.orbitPivot.rotation.y % TAU; });
     this.sun?.update(delta, isPlaying ? delta * Math.min(speed, SUN_MAX_ANIMATION_SPEED) : 0, this.camera);
     if (this.artemis?.active) this.artemis.update(delta, speed, isPlaying);
     if (!this.artemis?.active || !this.artemis.cameraMode) this.updateCamera(delta);
     this.controls.update();
     if (this.artemis?.active) this.artemis.updateLabels();
+    this.backdrop?.update(this.camera);
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -543,5 +610,12 @@ export class SolarSystemView {
   getSelectedName() { return this.selectedName; }
   getBodyNames() { return BODY_ORDER.filter((name) => this.bodies.has(name)); }
   reset() { this.returnToOverview(); this.camera.position.copy(this.initialCameraPosition); this.controls.target.copy(this.initialTarget); this.currentTarget.copy(this.initialTarget); this.controls.update(); if (this.artemis?.active) this.artemis.restart(); }
-  resize() { if (!this.renderer) return; const { clientWidth: width, clientHeight: height } = this.container; if (!width || !height) return; this.camera.aspect = width / height; this.camera.updateProjectionMatrix(); this.renderer.setSize(width, height, false); }
+  resize() { if (!this.renderer) return; const { clientWidth: width, clientHeight: height } = this.container; if (!width || !height) return; this.camera.aspect = width / height; this.camera.updateProjectionMatrix(); this.renderer.setSize(width, height, false); this.frameOverview(); }
+  frameOverview() {
+    this.initialCameraPosition.copy(OVERVIEW_CAMERA).multiplyScalar(THREE.MathUtils.clamp(NARROW_OVERVIEW_ASPECT / this.camera.aspect, 1, MAX_OVERVIEW_PULLBACK));
+    if (this.overviewFramed) return;
+    this.overviewFramed = true;
+    this.camera.position.copy(this.initialCameraPosition);
+    this.controls.update();
+  }
 }

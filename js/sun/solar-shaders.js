@@ -83,8 +83,8 @@ float fbm(vec3 p){
   return s * 1.6;
 }
 vec3 palette(float h){
-  vec3 deepRed = vec3(0.36, 0.03, 0.0);
-  vec3 burnt   = vec3(0.78, 0.17, 0.01);
+  vec3 deepRed = vec3(0.56, 0.09, 0.0);
+  vec3 burnt   = vec3(0.88, 0.26, 0.015);
   vec3 orange  = vec3(1.0, 0.45, 0.04);
   vec3 yellow  = vec3(1.0, 0.78, 0.22);
   vec3 white   = vec3(1.0, 0.95, 0.76);
@@ -115,7 +115,7 @@ void main(){
   // Concentrated bright active regions and darker reddish zones.
   float activeRegion = smoothstep(0.5, 0.82, snoise(p * 1.7 + vec3(2.0, t * 0.008, -1.0)) * 0.5 + 0.5 + 0.25 * (large - 0.5));
   float cool = smoothstep(0.5, 0.78, fbm(p * 3.3 + q * 1.2 + vec3(11.0, 0.0, t * 0.015)) * 0.5 + 0.5);
-  float heat = 0.46 + 0.7 * (large - 0.5) + 0.35 * (mid - 0.5) + 0.34 * (gran - 0.5) + 0.42 * activeRegion - 0.3 * cool;
+  float heat = 0.53 + 0.52 * (large - 0.5) + 0.3 * (mid - 0.5) + 0.3 * (gran - 0.5) + 0.34 * activeRegion - 0.22 * cool;
   // Fixed illustrative active regions and sunspots (object space, so they rotate with the Sun and stay aligned with their markers).
   float regionGlow = 0.0;
   for (int i = 0; i < 2; i++){ regionGlow = max(regionGlow, smoothstep(0.9, 0.985, dot(p, uRegions[i]))); }
@@ -132,8 +132,8 @@ void main(){
   col = mix(col, vec3(0.06, 0.012, 0.0), umbra * 0.92);
   // Limb darkening and reddening.
   float mu = clamp(dot(normalize(vViewNormal), normalize(vViewDir)), 0.0, 1.0);
-  col *= 0.6 + 0.4 * pow(mu, 0.45);
-  col = mix(col, vec3(0.8, 0.14, 0.01), pow(1.0 - mu, 3.0) * 0.4);
+  col *= 0.66 + 0.34 * pow(mu, 0.45);
+  col = mix(col, vec3(1.0, 0.42, 0.06), pow(1.0 - mu, 3.0) * 0.5);
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -164,7 +164,7 @@ void main(){
   float streak = 1.0;
   if (uStreamers > 0.5){
     float s = snoise(vec3(dir * 4.5, uTime * 0.03 + d * 0.5)) * 0.5 + 0.5;
-    streak = 0.65 + 0.7 * smoothstep(0.35, 0.85, s) * smoothstep(1.0, 1.6, d);
+    streak = 0.82 + 0.34 * smoothstep(0.2, 0.95, s) * smoothstep(1.0, 1.6, d);
   }
   float limb = smoothstep(1.0, 1.04, d) * (1.0 - smoothstep(1.04, 1.5, d)) * 0.55;
   float a = (fall * (0.55 + 0.6 * n) * streak + limb * fall * 2.0) * edge;
@@ -173,6 +173,20 @@ void main(){
   vec3 outer = vec3(0.95, 0.32, 0.05);
   vec3 col = mix(outer, inner, smoothstep(2.4, 1.0, d));
   gl_FragColor = vec4(col, a);
+}
+`;
+
+// Wide, featureless light around the Sun. It stands in for camera bloom without a full-screen post-processing pass.
+export const HALO_FRAGMENT = /* glsl */ `
+uniform float uSpan;
+varying vec2 vUv;
+void main(){
+  float d = max(length(vUv - 0.5) * 2.0 * uSpan, 1.0);
+  float edge = 1.0 - smoothstep(uSpan * 0.4, uSpan, d);
+  float tight = pow(1.0 / d, 5.0) * 0.2;
+  float wide = pow(1.0 / d, 1.6) * 0.085;
+  vec3 col = vec3(1.0, 0.62, 0.3) * wide + vec3(1.0, 0.8, 0.52) * tight;
+  gl_FragColor = vec4(col * edge, 1.0);
 }
 `;
 
