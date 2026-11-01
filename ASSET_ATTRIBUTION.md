@@ -36,12 +36,31 @@ All texture files in `assets/textures/` are stored locally for dependable static
 
 | Local file | Source | Notes |
 | --- | --- | --- |
-| `mercury.jpg`, `venus.jpg`, `earth.jpg`, `mars.jpg`, `jupiter.jpg`, `saturn.jpg`, `uranus.jpg`, `neptune.jpg` | NASA Jet Propulsion Laboratory, [Solar System Maps](https://maps.jpl.nasa.gov/) | Global planet texture maps. JPL notes that gas-giant appearance maps are representative; textures are educational visualizations rather than live observations. |
+| `earth.jpg` | NASA Jet Propulsion Laboratory, [Solar System Maps](https://maps.jpl.nasa.gov/) | Global Earth texture map; an educational visualization rather than a live observation. |
 | `moon.jpg` | NASA Scientific Visualization Studio / Lunar Reconnaissance Orbiter Camera, [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/) (`lroc_color_2k.jpg`) | Global 2K lunar colour map in longitude–latitude projection, used unmodified as the Moon colour map. |
 | `moon-elevation-nasa-1k.jpg` | NASA SVS CGI Moon Kit (`ldem_3_8bit.jpg`), derived from LRO Lunar Orbiter Laser Altimeter (LOLA) topography | Unmodified 1024×512 8-bit elevation map (about −9.1 km to +10.8 km), used as Three.js displacement and bump map. Relief is exaggerated about 4× for visibility. |
 | `moon-original-backup.jpg` | Byte-identical copy of the previous `moon.jpg` | Recoverable backup of the Moon texture that existed before the terrain upgrade. |
 | `sun.jpg` | NASA Scientific Visualization Studio, solar Carrington-map visualization | Now used only as the Sun's thumbnail in the information panel. The 3D Sun is rendered by original procedural shaders (`js/sun/`); no stock footage, video frames or textures are used. |
 | `earth-clouds.png` | NASA Scientific Visualization Studio, [Earth with Clouds](https://svs.gsfc.nasa.gov/3615/) | A local 1024×512 RGBA cloud-shell texture derived from the aligned NASA/GSFC clouded and cloud-free Earth maps. The source describes the cloud coverage as a Climate Prediction Center multi-satellite global cloud composite. RGB preserves the satellite-derived cloud formations; alpha is derived from the difference between the paired maps so clear surface areas remain transparent. |
+
+### Planet texture register
+
+`-high` files are loaded only for the selected planet on non-touch screens at least 640 px in both directions, with a GPU limit of at least 4096 px. All other views use the standard file. No file was upscaled: every output is at or below its source resolution.
+
+| Planet | File | Resolution | Source | Licence or usage basis | Changes |
+| --- | --- | --- | --- | --- | --- |
+| Mercury | `mercury-high.jpg`, `mercury.jpg` | 4096×2048, 2048×1024 | [Solar System Scope](https://www.solarsystemscope.com/textures/) `8k_mercury.jpg` (8192×4096) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), © Solar System Scope / INOVE | Downsampled |
+| Venus | `venus-high.jpg`, `venus.jpg` | 4096×2048, 2048×1024 | Solar System Scope `4k_venus_atmosphere.jpg` (4096×2048) | CC BY 4.0, © Solar System Scope / INOVE | Wrap seam feathered; downsampled. This is an artist-processed cloud map, not one photographic mosaic. |
+| Mars | `mars-high.jpg`, `mars.jpg` | 4096×2048, 2048×1024 | Solar System Scope `8k_mars.jpg` (8192×4096) | CC BY 4.0, © Solar System Scope / INOVE | Saturation reduced to 82% to offset the source's stated colour boost; downsampled |
+| Jupiter | `jupiter-high.jpg`, `jupiter.jpg` | 3600×1800, 2048×1024 | NASA/JPL/Space Science Institute, Cassini [PIA07782](https://photojournal.jpl.nasa.gov/catalog/PIA07782) full-resolution TIFF (3601×1801), December 2000 | NASA [media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/); no endorsement implied | Duplicate wrap column and row removed; seam feathered; downsampled for the standard file. Polar regions are less clear because Cassini viewed them obliquely. |
+| Saturn | `saturn-high.jpg`, `saturn.jpg` | 4096×2048, 2048×1024 | Solar System Scope `8k_saturn.jpg` (delivered as 4096×2048) | CC BY 4.0, © Solar System Scope / INOVE | Wrap seam feathered; downsampled for the standard file. Its fine detail is low, because the source is smooth. |
+| Saturn rings | `saturn-rings.png` | 4096×8 RGBA | Solar System Scope `8k_saturn_ring_alpha.png` (8192×500) | CC BY 4.0, © Solar System Scope / INOVE | Reduced to a radial strip. Ring radii of 1.20–2.33 Saturn radii were fitted to the map's Encke Gap and B-ring edge; expect about 1–2% radial error. |
+| Uranus | `uranus.jpg` | 1024×512 | Solar System Scope `2k_uranus.jpg` (2048×1024) | CC BY 4.0, © Solar System Scope / INOVE | Downsampled, because the source is a smooth gradient with no finer detail |
+| Neptune | `neptune.jpg` | 2048×1024 | Solar System Scope `2k_neptune.jpg` (2048×1024) | CC BY 4.0, © Solar System Scope / INOVE | Features resembling the storms Voyager 2 saw in 1989, including the Great Dark Spot, painted out by cloning same-latitude atmosphere from another longitude, because they are not permanent; wrap seam feathered. Small bright clouds kept. Source detail is soft. |
+
+Solar System Scope states that its textures are based on NASA elevation and imagery data, with colours tuned to true-colour photographs from Messenger, Viking, Cassini, and the Hubble Space Telescope. It also states that colours are slightly more saturated than real life and that unmapped areas are filled with fictional terrain matching the surroundings. These maps are therefore scientifically informed educational textures, not raw mission mosaics. Only the Jupiter map comes directly from a mission product.
+
+The planet maps above replace the earlier files of the same names; the previous versions remain in Git history. Exposure gains and removal of the warm tint of the display light are applied in `js/data/planets.js` and `js/solar-system-view.js`; they are display choices, not measured albedo.
 
 Earth’s cloud layer is a separate, transparent spherical shell just above the surface. It rotates independently at a slower illustrative rate; it is not a live weather product.
 

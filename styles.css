@@ -6,6 +6,29 @@
 }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.sim-dock { position: absolute; left: 50%; bottom: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; width: max-content; max-width: calc(100% - 16px); padding: 5px; transform: translateX(-50%); border: 1px solid #4b6a91; border-radius: 11px; background: rgba(5, 12, 26, .86); box-shadow: 0 4px 16px rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.sim-dock button { min-height: 36px; padding: 0 9px; font-size: 12px; font-variant-numeric: tabular-nums; touch-action: manipulation; }
+.sim-dock button[hidden] { display: none; }
+.sim-dock .sim-icon { flex: none; display: grid; place-items: center; width: 36px; padding: 0; }
+.sim-icon svg { width: 15px; height: 15px; fill: currentColor; }
+.sim-presets { display: flex; flex: 0 1 auto; min-width: 0; gap: 2px; }
+.sim-presets button { flex: 1 1 auto; min-width: 0; border-radius: 6px; }
+.sim-presets button[aria-pressed="true"] { border-color: #8cc9ff; background: #2f6fb0; font-weight: 700; }
+.sim-dock input[type="range"] { flex: 0 1 120px; width: 120px; min-width: 60px; margin: 0 2px; }
+.sim-dock output { min-width: 3em; font-size: 12px; font-weight: 600; text-align: center; white-space: nowrap; }
+.sim-dock[data-capped="true"] output { color: #ffd38a; }
+.solar-system:fullscreen { width: 100%; height: 100%; border: 0; border-radius: 0; }
+@media (pointer: coarse) { .sim-dock button { min-height: 40px; }.sim-dock .sim-icon { width: 40px; } }
+@media (max-width: 620px) {
+  .sim-dock { left: 8px; right: 8px; bottom: 8px; gap: 3px; width: auto; max-width: none; padding: 4px; transform: none; justify-content: space-between; }
+  .sim-dock input[type="range"] { display: none; }
+  .sim-presets { flex: 1 1 auto; }
+  .sim-presets button { flex: 1 1 0; padding: 0 1px; font-size: 11px; }
+  .sim-dock .sim-icon { width: 36px; }
+  .sim-dock output:not(.is-custom) { display: none; }
+  .sim-dock[data-capped="true"] output { display: block; position: absolute; right: 4px; bottom: calc(100% + 4px); min-width: 0; padding: 2px 6px; border-radius: 6px; background: rgba(5, 12, 26, .86); font-size: 10px; }
+}
+@media (max-width: 360px) { .sim-dock { left: 4px; right: 4px; }.sim-dock .sim-icon { width: 33px; } }
 .mission-toggle { padding: 7px 12px; border: 1px solid #4c7890; border-radius: 8px; background: #102f43; font-weight: 600; }
 .mission-toggle input { width: 18px; height: 18px; }
 .mission-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
@@ -16,6 +39,7 @@
 .mission-hud small { font-size: 10px; color: #aabfd0; }
 .mission-legend { position: absolute; bottom: 14px; left: 18px; display: flex; gap: 18px; font-size: 11px; color: #c0d3e2; }
 .mission-legend span::before { content: ''; display: inline-block; width: 18px; height: 2px; vertical-align: middle; margin-right: 6px; }
+@media (max-width: 900px) { .mission-legend { bottom: 66px; left: 12px; gap: 10px; } }
 .legend-outbound::before { background: #63d7ef; }.legend-return::before { background: #ff9b79; }
 .mission-tag { position: absolute; transform: translate(-50%, -50%); padding: 4px 7px; border-radius: 5px; background: #081425d9; color: #c9d9e9; font-size: 10px; white-space: nowrap; }
 .mission-tag[hidden] { display: none; }
@@ -186,6 +210,5 @@ output { min-width: 2.5em; color: #fff; font-variant-numeric: tabular-nums; }
   .controls label { width: 100%; justify-content: space-between; }
   .body-panel { margin: 0 0 14px; max-width: none; border-radius: 14px 14px 10px 10px; }
   .body-details { grid-template-columns: 1fr 1fr; }
-  #speed { flex: 1; }
   .solar-system { height: clamp(320px, 105vw, 460px); }
 }
