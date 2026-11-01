@@ -180,14 +180,22 @@
         <button id="close-panel" class="panel-close" type="button" aria-label="Close celestial body information">×</button>
         <p class="eyebrow" id="body-classification"></p>
         <h2 id="body-name"></h2>
-        <img id="body-thumbnail" class="body-thumbnail" alt="" hidden>
-        <p id="body-description"></p>
-        <dl id="body-details" class="body-details"></dl>
-        <h3>Explore</h3>
-        <ul id="body-facts" class="body-facts"></ul>
-        <div class="panel-actions">
-          <button id="panel-focus" type="button">Focus</button>
-          <button id="panel-moon" type="button" hidden>Explore Moon</button>
+        <div class="body-layout">
+          <div class="body-overview">
+            <img id="body-thumbnail" class="body-thumbnail" alt="" hidden>
+            <div class="body-intro">
+              <p id="body-description"></p>
+              <div class="panel-actions">
+                <button id="panel-focus" type="button">Focus</button>
+                <button id="panel-moon" type="button" hidden>Explore Moon</button>
+              </div>
+            </div>
+          </div>
+          <div class="body-data">
+            <dl id="body-details" class="body-details"></dl>
+            <h3>Explore</h3>
+            <ul id="body-facts" class="body-facts"></ul>
+          </div>
         </div>
       </aside>
 

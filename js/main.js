@@ -572,6 +572,8 @@ elements.overview.addEventListener('click', returnToOverview);
 
 elements.closePanel.addEventListener('click', () => {
   elements.panel.hidden = true;
+  // The focused button just disappeared, so keep keyboard users near where they were.
+  elements.selector.focus();
 });
 
 elements.panelFocus.addEventListener('click', () => {

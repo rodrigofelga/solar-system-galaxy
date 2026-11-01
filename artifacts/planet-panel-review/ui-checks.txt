@@ -1,0 +1,31 @@
+Celestial-body panel: browser checks (Edge, GTX 1050 Ti, 2026-11-01)
+
+PASS - 1440px en: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":426,"Mercury":426,"Venus":426,"Earth":426,"Moon":426,"Mars":401,"Jupiter":426,"Saturn":426,"Uranus":408,"Neptune":426}
+PASS - 1440px pt-BR: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":426,"Mercury":426,"Venus":426,"Earth":426,"Moon":426,"Mars":401,"Jupiter":426,"Saturn":426,"Uranus":408,"Neptune":426}
+PASS - 1440px: stat columns and Close size - 4 columns, close 32px
+PASS - 1280px en: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":426,"Mercury":426,"Venus":426,"Earth":426,"Moon":426,"Mars":401,"Jupiter":426,"Saturn":426,"Uranus":408,"Neptune":426}
+PASS - 1280px pt-BR: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":426,"Mercury":426,"Venus":426,"Earth":426,"Moon":426,"Mars":401,"Jupiter":426,"Saturn":426,"Uranus":408,"Neptune":426}
+PASS - 1280px: stat columns and Close size - 4 columns, close 32px
+PASS - Portuguese applied in panel - pt-BR
+PASS - Explore Moon shows only for Earth
+PASS - Explore Moon opens the Moon in the same panel
+PASS - Focus re-centres on the selected body
+PASS - Selecting in the viewer updates the same panel - Júpiter
+PASS - Viewer still responds to drag while the panel is open
+PASS - Selecting a body does not scroll the page
+PASS - Keyboard: Shift+Tab from Focus reaches Close
+PASS - Keyboard: Close shows a focus ring - solid
+PASS - Close hides the panel, leaves no blank space, keeps focus nearby - {"hidden":true,"display":"none","gap":15,"focus":"body-selector","aligned":true}
+PASS - Panel reopens after Close
+PASS - 768px en: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":575,"Mercury":559,"Venus":559,"Earth":575,"Moon":575,"Mars":559,"Jupiter":559,"Saturn":559,"Uranus":559,"Neptune":559}
+PASS - 768px pt-BR: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":575,"Mercury":559,"Venus":559,"Earth":575,"Moon":575,"Mars":559,"Jupiter":559,"Saturn":559,"Uranus":559,"Neptune":559}
+PASS - 768px: stat columns and Close size - 3 columns, close 32px
+PASS - 390px en: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":964,"Mercury":907,"Venus":924,"Earth":948,"Moon":964,"Mars":883,"Jupiter":931,"Saturn":931,"Uranus":899,"Neptune":948}
+PASS - 390px pt-BR: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":964,"Mercury":907,"Venus":924,"Earth":948,"Moon":964,"Mars":883,"Jupiter":931,"Saturn":931,"Uranus":899,"Neptune":948}
+PASS - 390px: stat columns and Close size - 2 columns, close 40px
+PASS - 320px en: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":1150,"Mercury":1110,"Venus":1085,"Earth":1110,"Moon":1085,"Mars":1085,"Jupiter":1102,"Saturn":1110,"Uranus":1053,"Neptune":1085}
+PASS - 320px pt-BR: all 10 bodies aligned to viewer and controls, no overflow, image proportional - {"Sun":1150,"Mercury":1110,"Venus":1085,"Earth":1110,"Moon":1085,"Mars":1085,"Jupiter":1102,"Saturn":1110,"Uranus":1053,"Neptune":1085}
+PASS - 320px: stat columns and Close size - 1 columns, close 40px
+PASS - No console or page errors at any width
+
+27 passed, 0 failed
