@@ -311,7 +311,15 @@ export class SolarSystemView {
   }
 
   addEarthAtmosphere(parent, radius) {
-    parent.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.04, 48, 36), new THREE.MeshBasicMaterial({ color: 0x78caff, transparent: true, opacity: 0.14, side: THREE.BackSide, depthWrite: false })));
+    // Fades to nothing at the shell's outer edge, so the atmosphere reads as a glow rather than a second sphere.
+    parent.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.04, 48, 36), new THREE.ShaderMaterial({
+      uniforms: { glowColor: { value: new THREE.Color(0x78caff) } },
+      vertexShader: 'varying vec3 vNormal; varying vec3 vView; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vNormal = normalMatrix * normal; vView = -mv.xyz; gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vView; void main() { float glow = smoothstep(0.0, 0.28, abs(dot(normalize(vNormal), normalize(vView)))); gl_FragColor = vec4(glowColor, 0.3 * glow * glow);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
+      transparent: true,
+      side: THREE.BackSide,
+      depthWrite: false,
+    })));
     const cloudMaterial = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       transparent: true,
