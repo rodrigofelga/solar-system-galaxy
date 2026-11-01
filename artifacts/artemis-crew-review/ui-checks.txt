@@ -1,0 +1,22 @@
+PASS - Replay runs through all seven chapters in order and advances - rate 1.03× nominal over 1 s
+PASS - Mission timing and chapter starts are unchanged
+PASS - Orion stays on the drawn path through the mission - largest gap 0.0166 scene units
+PASS - Thin fixed-width path: outbound and return colours differ; trail follows Orion - 1101 samples, 1.1px
+PASS - Trajectory toggle hides and shows both lines; cameras switch
+PASS - Earth and Moon motion untouched: Moon keeps orbiting during replay
+PASS - Crew: four cards, names, roles, images load
+PASS - Crew links: all external, new tab, safe rel, labelled
+PASS - Keyboard: Tab reaches every crew link with visible focus
+PASS - Crew does not intercept mission controls
+PASS - Language: crew switches to pt-BR and back; replay and camera not reset
+PASS - Desktop: four across, equal card heights, no overflow
+PASS - Frame timing with new lines stays smooth - median 13.3 ms, p95 13.4 ms
+PASS - No JS errors or failed requests (desktop)
+PASS - tablet-768: 2 column layout, images, tap targets, no overflow - section 1696px tall
+PASS - tablet-768: no JS errors
+PASS - mobile-390: 1 column layout, images, tap targets, no overflow - section 1921px tall
+PASS - mobile-390: no JS errors
+PASS - mobile-320: 1 column layout, images, tap targets, no overflow - section 2161px tall
+PASS - mobile-320: no JS errors
+
+20 passed, 0 failed

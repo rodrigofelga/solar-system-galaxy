@@ -9,21 +9,34 @@ export const unit = (a) => { const n = norm(a) || 1; return a.map((v) => v / n);
 export const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 export const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, v));
 
-// Educational adaptation only: preserve the source curve's shape and single flyby,
-// compress it to the host Moon's radius, and keep enlarged models clear of surfaces.
+const smoothstep = (a, b, v) => { const u = clamp((v - a) / (b - a)); return u * u * (3 - 2 * u); };
+const FLIGHT_CLEARANCE = 1.24;
+const SURFACE_CLEARANCE = 0.95;
+const MOON_CLEARANCE = 0.64;
+
+// Educational adaptation only: preserve the source curve's single flyby, show it relative
+// to the Moon, compress it to the host Moon's radius, and keep enlarged models clear of surfaces.
+// position holds the display-frame spacecraft (0–2) and source Moon (3–5).
+// Both clearances are smooth remappings, so close passes keep their shape instead of
+// being flattened onto a sphere with a corner where they meet it.
 // The renderer rotates this frame with the existing lunar hierarchy, not a new clock.
 export function integratedPosition(position, sourceMoonRadius, moonRadius, progress, out = new Array(3)) {
-  const scale = moonRadius / sourceMoonRadius;
-  for (let i = 0; i < 3; i++) out[i] = position[i] * scale;
-  const floor = progress > 0.94 ? 1.24 - 0.29 * ((progress - 0.94) / 0.06) : 1.24;
-  let r = Math.hypot(...out);
-  if (r < floor) for (let i = 0; i < 3; i++) out[i] *= floor / (r || 1);
+  const scale = Math.sqrt(moonRadius ** 2 - FLIGHT_CLEARANCE ** 2) / sourceMoonRadius;
+  // The route starts and ends at the display surface and holds flight clearance in between.
+  const floor = SURFACE_CLEARANCE + (FLIGHT_CLEARANCE - SURFACE_CLEARANCE) * smoothstep(0, 0.12, progress) * (1 - smoothstep(0.94, 1, progress));
+  const sourceRadius = Math.hypot(position[0], position[1], position[2]) || 1;
+  const radial = Math.hypot(floor, sourceRadius * scale) / sourceRadius;
+  // Earth–Moon rotating frame: turn each point by the source Moon's angle at that moment, keeping
+  // the Moon on +X. The real spacecraft never meets the Moon's flyby position early, so neither does this.
+  const moonAngle = Math.atan2(position[5], position[3]); const c = Math.cos(moonAngle); const s = Math.sin(moonAngle);
+  out[0] = (position[0] * c + position[2] * s) * radial;
+  out[1] = position[1] * radial;
+  out[2] = (position[2] * c - position[0] * s) * radial;
   const dx = out[0] - moonRadius, dy = out[1], dz = out[2];
-  r = Math.hypot(dx, dy, dz);
-  if (r < 0.64) {
-    const boost = (0.64 - r) / (r || 1);
-    out[0] += dx * boost; out[1] += dy * boost; out[2] += dz * boost;
-  }
+  const d = Math.hypot(dx, dy, dz) || 1;
+  // A fourth-power norm holds the clearance close in and fades too fast to bend the coast legs.
+  const boost = ((d ** 4 + MOON_CLEARANCE ** 4) ** 0.25 - d) / d;
+  out[0] += dx * boost; out[1] += dy * boost; out[2] += dz * boost;
   return out;
 }
 
@@ -102,12 +115,11 @@ export function physicalState(data, time, out = new Array(12)) {
     }
     for (let i = 0; i < 3; i += 1) out[i] = position[i];
   } else if (time > data.last) {
-    const u = clamp((time - data.last) / (data.end - data.last));
-    const last = data.rows.at(-1); const d = unit(last.slice(1, 4));
-    const target = unit(last.slice(1, 4).map((v, i) => v + last[i + 4] * 140));
-    const r = norm(last.slice(1, 4)) * (1 - u) + EARTH_KM * u;
-    const turn = u*u*(3-2*u);
-    const direction = unit(d.map((v, i) => v * (1-turn) + target[i] * turn));
+    // Leave the last published state along its own velocity, slowing to a stop, to avoid a corner at entry.
+    const span = data.end - data.last; const u = clamp((time - data.last) / span);
+    const last = data.rows.at(-1); const travelled = span * (1 - (1-u)**3) / 3;
+    const direction = unit(last.slice(1, 4).map((v, i) => v + last[i + 4] * travelled));
+    const r = norm(last.slice(1, 4)) + (EARTH_KM - norm(last.slice(1, 4))) * u * u;
     for (let i = 0; i < 3; i += 1) out[i] = direction[i] * r;
   }
   // Extrapolate the computed lunar model over only the short illustrative bookends.

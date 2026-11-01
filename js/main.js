@@ -3,6 +3,7 @@ import { GalaxyView } from './galaxy-view.js';
 import { SolarSystemView } from './solar-system-view.js';
 import { CELESTIAL_BODIES } from './data/celestial-bodies.js';
 import { ArtemisControls } from './mission/artemis-controls.js';
+import { renderCrewSection } from './mission/crew-section.js';
 import { t } from './i18n/translations.js';
 
 const DEFAULT_SPEED = 1;
@@ -179,11 +180,14 @@ function setLanguage(language) {
   document.documentElement.lang = currentLanguage;
 
   refreshLanguage();
+  renderCrewSection(currentLanguage);
 
   if (state.selectedName) {
     renderPanel(state.selectedName);
   }
 }
+
+renderCrewSection(currentLanguage);
 
 document.querySelector('#language-select').addEventListener(
   'change',

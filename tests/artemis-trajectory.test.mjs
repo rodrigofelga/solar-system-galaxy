@@ -71,6 +71,21 @@ test('Moon advances independently while full route remains Earth-centred', () =>
 });
 
 
+test('integrated route has no visible corners and keeps its legs apart around the Moon',()=>{
+ const radius=norm(displayState(data,basis,data.flyby).slice(3));
+ const at=(p)=>integratedPosition(displayState(data,basis,timeAtProgress(data,p)),radius,2.75,p);
+ // Compare headings across a visible length of route, ignoring source features far below a pixel.
+ const points=[at(0)];let travelled=0;let previous=points[0];
+ for(let i=1;i<=100000;i++){const q=at(i/100000);travelled+=distance(q,previous);previous=q;if(travelled>.08){points.push(q);travelled=0;}}
+ for(let i=1;i<points.length-1;i++){
+  const a=points[i].map((v,k)=>v-points[i-1][k]);const b=points[i+1].map((v,k)=>v-points[i][k]);
+  const turn=Math.acos(Math.min(1,dot(a,b)/(norm(a)*norm(b))))*180/Math.PI;
+  assert.ok(turn<30,`corner of ${turn.toFixed(1)} degrees at sample ${i}`);
+ }
+ const outbound=at(.5);const inbound=at(.74);
+ assert.ok(outbound[2]*inbound[2]<0&&distance(outbound,inbound)>1,'outbound and return legs stay on opposite sides of the Earth–Moon line');
+});
+
 test('integrated route clears original-sized bodies and returns to Earth',()=>{
  const flyby=displayState(data,basis,data.flyby);const radius=norm(flyby.slice(3));
  for(let i=0;i<=10000;i++){

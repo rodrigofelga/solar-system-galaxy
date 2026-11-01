@@ -1,6 +1,21 @@
 import * as THREE from 'three';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { createOrion } from './orion-model.js';
 import { referenceBasis, displayState, integratedPosition, timeAtProgress, progressAtTime, clamp, PLAYBACK_SECONDS } from './trajectory.js';
+
+const OUTBOUND_COLOR = new THREE.Color(0x63b7cb);
+const RETURN_COLOR = new THREE.Color(0xd9916f);
+const TRAIL_COLOR = new THREE.Color(0xffe7a4);
+const PATH_WIDTH = 1.1;
+const TRAIL_WIDTH = 1.7;
+const TRAIL_SAMPLES = 135;
+const TRAIL_PROGRESS = 0.028;
+const NOMINAL_MOON_RADIUS = 2.75;
+const SAMPLE_GRID = 40000;
+const MAX_SAMPLE_LENGTH = 0.03;
+const MAX_SAMPLE_TURN = 0.035;
 
 export const MISSION_PHASES = [
   { start: 0, title: 'Launch & initial Earth orbit', text: 'SLS lifts Orion from Earth. This opening segment illustrates launch and early Earth orbit; the local OEM does not cover ascent. The launch rocket is not carried along on the lunar journey.' },
@@ -31,26 +46,59 @@ export class ArtemisMission {
   }
 
   makePath() {
-    this.count = 1601; const positions = new Float32Array(this.count * 3); const colors = new Float32Array(this.count * 3);
-    const color = new THREE.Color(); this.bounds = new THREE.Box3();
+    this.sampleProgress = this.chooseSamples(); this.count = this.sampleProgress.length;
+    const positions = new Float32Array(this.count * 3); const colors = new Float32Array(this.count * 3);
+    const color = new THREE.Color(); const flyby = progressAtTime(this.data, this.data.flyby); this.bounds = new THREE.Box3();
     for (let i = 0; i < this.count; i += 1) {
-      const p = i / (this.count - 1); displayState(this.data, this.basis, timeAtProgress(this.data, p), this.sample, this.scratch);
+      const p = this.sampleProgress[i]; displayState(this.data, this.basis, timeAtProgress(this.data, p), this.sample, this.scratch);
       positions.set(this.sample.slice(0, 3), i * 3);
-      color.set(p < 0.30 ? 0xe7c48e : (p < progressAtTime(this.data, this.data.flyby) ? 0x63d7ef : 0xff9b79));
+      // Dim the loops around Earth so they do not compete with the planet; blend across the flyby.
+      color.copy(OUTBOUND_COLOR).lerp(RETURN_COLOR, THREE.MathUtils.smoothstep(p, flyby - 0.01, flyby + 0.01));
+      color.multiplyScalar(0.55 + 0.45 * THREE.MathUtils.smoothstep(p, 0.26, 0.30) * (1 - THREE.MathUtils.smoothstep(p, 0.90, 0.94)));
       colors.set([color.r, color.g, color.b], i * 3);
       this.bounds.expandByPoint(new THREE.Vector3(...this.sample.slice(0, 3)));
       this.bounds.expandByPoint(new THREE.Vector3(...this.sample.slice(3, 6)));
     }
     this.bounds.expandByPoint(new THREE.Vector3(-1.1, -1.1, -1.1)); this.bounds.expandByPoint(new THREE.Vector3(1.1, 1.1, 1.1));
-    const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3)); geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    this.path = new THREE.Line(geometry, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85 })); this.group.add(this.path);
-    const trailGeometry = new THREE.BufferGeometry(); trailGeometry.setAttribute('position', new THREE.BufferAttribute(positions.slice(), 3));
-    this.trail = new THREE.Line(trailGeometry, new THREE.LineBasicMaterial({ color: 0xffe7a4, depthTest: false })); this.trail.renderOrder = 2; this.group.add(this.trail);
+    const geometry = new LineGeometry(); geometry.setPositions(positions); geometry.setColors(colors);
+    this.path = new Line2(geometry, new LineMaterial({ vertexColors: true, linewidth: PATH_WIDTH, alphaToCoverage: true })); this.group.add(this.path);
+    // A short highlight behind Orion, brightest at the craft; instance 0 is the segment at its position.
+    const trailGeometry = new LineGeometry(); trailGeometry.setPositions(new Float32Array((TRAIL_SAMPLES + 1) * 3));
+    const trailColors = new Float32Array((TRAIL_SAMPLES + 1) * 3);
+    for (let i = 0; i <= TRAIL_SAMPLES; i += 1) { color.copy(TRAIL_COLOR).multiplyScalar(1 - 0.75 * i / TRAIL_SAMPLES); trailColors.set([color.r, color.g, color.b], i * 3); }
+    trailGeometry.setColors(trailColors);
+    this.trail = new Line2(trailGeometry, new LineMaterial({ vertexColors: true, linewidth: TRAIL_WIDTH, alphaToCoverage: true })); this.trail.frustumCulled = false; this.trail.renderOrder = 2; this.group.add(this.trail);
     displayState(this.data, this.basis, this.data.flyby, this.sample, this.scratch);
     this.sourceMoonRadius = Math.hypot(...this.sample.slice(3, 6));
-    this.sourcePositions = positions.slice(); this.displayPositions = positions;
-    this.trail.geometry.setAttribute('position', geometry.getAttribute('position'));
+    this.displayPositions = positions;
+  }
 
+  // Chapter pacing makes uniform progress coarse where time is compressed, such as at perigee,
+  // so keep a sample wherever the route has turned or travelled enough to show as a straight segment.
+  chooseSamples() {
+    displayState(this.data, this.basis, this.data.flyby, this.sample, this.scratch);
+    const sourceMoonRadius = Math.hypot(this.sample[3], this.sample[4], this.sample[5]);
+    const point = (p) => { displayState(this.data, this.basis, timeAtProgress(this.data, p), this.sample, this.scratch); return new THREE.Vector3().fromArray(integratedPosition(this.sample, sourceMoonRadius, NOMINAL_MOON_RADIUS, p, this.pathSample)); };
+    const kept = [0]; let previous = point(0); let heading = null; let travelled = 0; let turned = 0;
+    for (let i = 1; i <= SAMPLE_GRID; i += 1) {
+      const p = i / SAMPLE_GRID; const current = point(p); const step = current.clone().sub(previous); const length = step.length();
+      if (length > 0) { step.divideScalar(length); if (heading) turned += heading.angleTo(step); heading = step; travelled += length; }
+      if (travelled > MAX_SAMPLE_LENGTH || turned > MAX_SAMPLE_TURN || i === SAMPLE_GRID) { kept.push(p); travelled = 0; turned = 0; }
+      previous = current;
+    }
+    return Float64Array.from(kept);
+  }
+
+  updateTrail() {
+    // Find the last sample at or behind Orion, then walk back along the route.
+    let low = 0; let high = this.count - 1;
+    while (high - low > 1) { const mid = (low + high) >> 1; if (this.sampleProgress[mid] <= this.progress) low = mid; else high = mid; }
+    const segments = this.trail.geometry.attributes.instanceStart.data; const from = this.displayPositions; let length = 0;
+    for (let index = low; index > 0 && length < TRAIL_SAMPLES && this.progress - this.sampleProgress[index] < TRAIL_PROGRESS; index -= 1, length += 1) {
+      const a = index * 3; const b = a - 3;
+      segments.array.set([from[a], from[a+1], from[a+2], from[b], from[b+1], from[b+2]], length * 6);
+    }
+    segments.needsUpdate = true; this.trail.geometry.instanceCount = length;
   }
 
   makeLabels() {
@@ -141,7 +189,7 @@ export class ArtemisMission {
       displayState(this.data, this.basis, time, this.sample, this.scratch);
       this.adapt(this.sample, this.progress, this.pathSample);
       this.orion.group.position.fromArray(this.pathSample);
-      const next = Math.min(1, this.progress + 0.00001);
+      const next = Math.min(1, this.progress + 0.0005);
       displayState(this.data, this.basis, timeAtProgress(this.data, next), this.nextSample, this.scratch);
       this.adapt(this.nextSample, next, this.pathSample);
       this.tangent.fromArray(this.pathSample).sub(this.orion.group.position);
@@ -152,17 +200,16 @@ export class ArtemisMission {
       // Scale the precomputed NASA-inspired route to the ordinary lunar spacing.
       if (!this.pathAdapted) {
         for (let i = 0; i < this.count; i++) {
-          this.sample[0] = this.sourcePositions[i*3]; this.sample[1] = this.sourcePositions[i*3+1]; this.sample[2] = this.sourcePositions[i*3+2];
-          this.adapt(this.sample, i/(this.count-1), this.pathSample); this.displayPositions.set(this.pathSample, i*3);
+          displayState(this.data, this.basis, timeAtProgress(this.data, this.sampleProgress[i]), this.sample, this.scratch);
+          this.adapt(this.sample, this.sampleProgress[i], this.pathSample); this.displayPositions.set(this.pathSample, i*3);
         }
-        this.path.geometry.attributes.position.needsUpdate = true;
-        this.path.geometry.computeBoundingSphere(); this.trail.geometry.computeBoundingSphere(); this.pathAdapted = true;
+        this.path.geometry.setPositions(this.displayPositions); this.pathAdapted = true;
       }
     }
     this.orion.service.visible = this.progress < 0.94;
     this.orion.solarWings.forEach((wing) => { wing.visible = this.progress >= 0.12 && this.progress < 0.94; });
     this.orion.parachutes.visible = this.progress >= 0.985;
-    const index = Math.floor(this.progress * (this.count-1)); this.trail.geometry.setDrawRange(Math.max(0, index-45), Math.min(index, 45)+1);
+    this.updateTrail();
     this.group.updateWorldMatrix(true, true);
     this.orion.group.getWorldPosition(this.worldShip);
     this.dirty = false;

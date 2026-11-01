@@ -43,6 +43,17 @@ All texture files in `assets/textures/` are stored locally for dependable static
 | `sun.jpg` | NASA Scientific Visualization Studio, solar Carrington-map visualization | Now used only as the Sun's thumbnail in the information panel. The 3D Sun is rendered by original procedural shaders (`js/sun/`); no stock footage, video frames or textures are used. |
 | `earth-clouds.png` | NASA Scientific Visualization Studio, [Earth with Clouds](https://svs.gsfc.nasa.gov/3615/) | A local 1024×512 RGBA cloud-shell texture derived from the aligned NASA/GSFC clouded and cloud-free Earth maps. The source describes the cloud coverage as a Climate Prediction Center multi-satellite global cloud composite. RGB is plain white; alpha keeps only the satellite-derived cloud formations, so no land, ocean, or ice from the source map is painted over the surface. Cloud is thresholded by whiteness and faded out toward both polar regions, where the source has no usable cloud separation. |
 
+### Artemis II crew register
+
+Facts checked in November 2026. Portraits are 480×640 downsized copies with metadata removed. They are used factually for education with NASA credited and no endorsement implied, under the NASA [media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/), which do not allow astronaut likenesses on commercial products or promotion. All four are NASA images, so the CSA [terms](https://www.asc-csa.gc.ca/eng/terms.asp) apply only to CSA material, such as the linked biography.
+
+| Astronaut | Portrait file | Portrait source | Credit | Biography source | Social accounts and where each agency lists them |
+| --- | --- | --- | --- | --- | --- |
+| Reid Wiseman, Commander | `assets/crew/wiseman.jpg` | NASA [jsc2023e0016434](https://www.nasa.gov/wp-content/uploads/2023/06/jsc2023e0016434-alt.jpg) | NASA/Josh Valcarcel | [NASA biography](https://www.nasa.gov/people/reid-wiseman/) | Instagram and X `astro_reid`: NASA [crew page](https://www.nasa.gov/feature/our-artemis-crew/), [press kit](https://www.nasa.gov/artemis-ii-press-kit/) |
+| Victor Glover, Pilot | `assets/crew/glover.jpg` | NASA [jsc2023e0016433](https://www.nasa.gov/wp-content/uploads/2023/06/jsc2023e0016433-alt.jpg) | NASA/Josh Valcarcel | [NASA biography](https://www.nasa.gov/humans-in-space/astronauts/victor-j-glover/) | Instagram and X `astrovicglover`: NASA crew page, press kit |
+| Christina Koch, Mission Specialist | `assets/crew/koch.jpg` | NASA [jsc2023e0016435](https://www.nasa.gov/wp-content/uploads/2023/06/jsc2023e0016435-alt.jpg) | NASA/Josh Valcarcel | [NASA biography](https://www.nasa.gov/people/christina-koch/) | Instagram and X `astro_christina`: NASA crew page; X also in press kit |
+| Jeremy Hansen, Mission Specialist | `assets/crew/hansen.jpg` | NASA [jsc2023e0016436](https://www.nasa.gov/wp-content/uploads/2023/06/jsc2023e0016436-alt.jpg) | NASA/Josh Valcarcel | [CSA biography](https://www.asc-csa.gc.ca/eng/astronauts/canadian/active/bio-jeremy-hansen.asp) | Instagram `astrojeremy` and X `Astro_Jeremy`: CSA [mission page](https://www.asc-csa.gc.ca/eng/missions/artemis-ii/), press kit. NASA's crew page links his X button to the CSA agency account instead. |
+
 ### Planet texture register
 
 `-high` files are loaded only for the selected planet on non-touch screens at least 640 px in both directions, with a GPU limit of at least 4096 px. All other views use the standard file. No file was upscaled: every output is at or below its source resolution.
