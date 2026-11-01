@@ -36,8 +36,8 @@ The Solar System & Milky Way Explorer aims to demonstrate these interconnected m
 - Animated representation of the Solar System's movement around the galactic centre.
 - Stylized spiral galaxy with thousands of procedurally distributed stars.
 - Highlighted galactic orbital path and direction of travel.
-- Adjustable animation speed.
-- Pause, resume, and reset controls.
+- Play, Pause, speed presets (0.1×, 1×, 10×, 100×), a speed slider, Reset speed, and Fullscreen, all inside the 3D Solar System view.
+- Reset camera control.
 
 ### Solar System Visualization
 

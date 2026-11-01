@@ -118,6 +118,19 @@
           <p id="webgl-fallback" class="webgl-fallback" hidden>
             The Solar System Explorer is starting.
           </p>
+          <div id="sim-dock" class="sim-dock" role="group" aria-label="Simulation controls">
+            <button id="toggle" type="button" class="sim-icon" aria-label="Pause" title="Pause"><svg viewBox="0 0 16 16" aria-hidden="true"><path id="toggle-icon" d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg></button>
+            <div id="speed-presets" class="sim-presets" role="group" aria-label="Speed presets">
+              <button type="button" data-speed="0.1" aria-pressed="false">0.1×</button>
+              <button type="button" data-speed="1" aria-pressed="true">1×</button>
+              <button type="button" data-speed="10" aria-pressed="false">10×</button>
+              <button type="button" data-speed="100" aria-pressed="false">100×</button>
+            </div>
+            <input type="range" id="speed" min="-1" max="2" step="0.05" value="0" aria-label="Speed" aria-valuetext="1×">
+            <output id="out" for="speed">1×</output>
+            <button id="speed-reset" type="button" class="sim-icon" aria-label="Reset speed" title="Reset speed"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 7.3l1.4-.5A4 4 0 1 0 8 4v2.5L4 3.25 8 0z"/></svg></button>
+            <button id="solar-fullscreen" type="button" class="sim-icon" aria-label="Fullscreen" title="Fullscreen"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h4.5v1.5h-3v3H2zM9.5 2H14v4.5h-1.5v-3h-3zM2 9.5h1.5v3h3V14H2zM12.5 9.5H14V14H9.5v-1.5h3z"/></svg></button>
+          </div>
         </div>
         <p class="note solar-note">Drag to orbit, scroll or pinch to zoom, and right-drag or two-finger drag to pan. Planet sizes, distances, and animation speeds are magnified for learning and are not to scale.</p>
         <section id="artemis-panel" class="artemis-panel" aria-labelledby="artemis-title" hidden>
@@ -142,7 +155,7 @@
             <nav id="mission-chapters" class="mission-chapters" aria-label="Jump to a mission phase"></nav>
           </fieldset>
           <div class="mission-narrative"><p class="eyebrow">THE JOURNEY</p><h3 id="mission-phase" role="status">Launch &amp; initial Earth orbit</h3><p id="mission-explanation"></p></div>
-          <p class="mission-scale-note">Educational scale: Orion, Earth, and the Moon are enlarged independently. The existing Earth–Moon spacing and orbital animations are preserved. Orion’s NASA-inspired route is compressed and turns with the accelerated lunar orbit; it is an educational adaptation, not an exact ephemeris reconstruction. The 120-second replay uses uneven chapter pacing, not real-time motion. Camera and chapter buttons preserve playback. Pause mission holds only the Orion replay; Earth and the Moon keep moving.</p>
+          <p class="mission-scale-note">Educational scale: Orion, Earth, and the Moon are enlarged independently. The existing Earth–Moon spacing and orbital animations are preserved. Orion’s NASA-inspired route is compressed and turns with the accelerated lunar orbit; it is an educational adaptation, not an exact ephemeris reconstruction. The 120-second replay uses uneven chapter pacing, not real-time motion. Camera and chapter buttons preserve playback. Pause mission holds only the Orion replay; Earth and the Moon keep moving. Mission speed is separate from the simulation speed, which is limited to 5× during the mission.</p>
           <details class="mission-guide"><summary>Mission guide, sources &amp; scale</summary>
             <div class="mission-guide-grid">
               <article><h3>A crewed test flight</h3><p>Artemis II tested Orion’s systems with four people aboard: Reid Wiseman, Victor Glover, Christina Koch, and Jeremy Hansen. A lunar flyby passes the Moon once; an orbital mission remains bound around it, and a landing descends to its surface.</p></article>
@@ -173,7 +186,6 @@
 
       <section class="controls-panel" aria-label="Animation controls">
         <div class="controls">
-          <button id="toggle" type="button" aria-pressed="false">Pause</button>
           <button id="reset" type="button">Reset camera</button>
           <button id="path" type="button" aria-pressed="true">Hide galactic orbit</button>
           <button id="solar-paths" type="button" aria-pressed="true">Hide planetary orbits</button>
@@ -189,12 +201,8 @@
           <button id="earth-moon" type="button">Earth &amp; Moon</button>
           <label class="mission-toggle" for="artemis-toggle"><input id="artemis-toggle" type="checkbox" aria-controls="artemis-panel mission-overlay">Show Artemis II Mission</label>
           <button id="overview" type="button">Full Solar System</button>
-          <label for="speed">Animation speed
-            <input type="range" id="speed" min="0" max="5" step="0.1" value="1">
-            <output id="out" for="speed">1×</output>
-          </label>
         </div>
-        <p class="note controls-note">Galactic and planetary animations use independently accelerated educational time scales; they are not synchronized to physical time.</p>
+        <p class="note controls-note">Galactic and planetary animations use independently accelerated educational time scales; they are not synchronized to physical time. Play, Pause, and speed controls are inside the Solar System view.</p>
       </section>
 
       <div class="facts" aria-label="Solar System facts">
@@ -203,6 +211,7 @@
         <span>Distance from galactic centre: approximately 26,000 light-years</span>
       </div>
       <p class="note footer-note">Created by Rodrigo Felga de Castro. Educational model, not to scale. The Milky Way is a stylized depiction. Planet sizes, distances, orbital speeds, and the Earth–Moon spacing are magnified for learning; texture maps and facts are documented in the project attribution notes.</p>
+      <p class="note footer-note texture-credit">Planet textures: Jupiter by NASA/JPL/Space Science Institute. Mercury, Venus, Mars, Saturn and its rings, Uranus, and Neptune resized and adapted (Neptune's 1989 storms removed) from: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener noreferrer">Solar System Scope</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a></p>
     </main>
   </body>
 </html>

@@ -4,6 +4,8 @@ Implemented and visually reviewed locally. The user authorized committing and pu
 
 ## What changed
 
+Time control: the Orion replay runs at its own mission speed (0.25×–4×) and is independent of the simulation speed. Pause in the Solar System view holds it. While the mission is active, the simulation speed applied to Earth and the Moon is limited to 5×, the range this integration was designed for, and the speed readout says so.
+
 The normal SolarSystemView.update loop is now the only authority for Earth orbit, Earth rotation/clouds, Moon orbit and Moon rotation. Artemis never reparents, moves, rotates, rescales, hides, restores, or disposes either celestial object. Toggling Artemis, seeking and changing replay speed leave those transforms untouched. The existing textures, lunar relief, atmosphere, lighting and orbit visibility remain in place.
 
 Artemis uses a scene-level Earth-relative frame. Each frame reads Earth and Moon world positions. The frame origin follows the existing Earth. During replay its orientation reads the existing Moon-parent world quaternion, so its +X direction follows the Moon. There is no new lunar or Earth clock and no additional celestial mesh. The ghost sphere and Moon-at-flyby label are removed completely.

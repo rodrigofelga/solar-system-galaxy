@@ -9,6 +9,13 @@ const TAU = Math.PI * 2;
 const ORBIT_SECONDS_PER_EARTH_YEAR = 16;
 const AXIAL_ROTATION_SECONDS_PER_EARTH_DAY = 4;
 const CAMERA_LERP_SPEED = 3.5;
+// The Sun's plasma and flares were tuned for this range; faster would strobe rather than inform.
+const SUN_MAX_ANIMATION_SPEED = 5;
+const SUNWARD_FOCUS_BIAS = 1.7;
+const WHITE = new THREE.Color(0xffffff);
+// Sunlight strikes the rings at a shallow angle, so they need more gain than the planet to read as bright as they do.
+const RING_ALBEDO_BOOST = 3;
+const RING_TINT = new THREE.Color(0xf6e7c8);
 
 export class SolarSystemView {
   constructor(container, fallback, onSelect) {
@@ -26,9 +33,11 @@ export class SolarSystemView {
     this.focusTarget = null;
     this.focusPosition = null;
     this.focusOffset = new THREE.Vector3();
+    this.focusPan = new THREE.Vector3();
     this.selectedName = null;
     this.followSelected = false;
     this.textureLoader = new THREE.TextureLoader();
+    this.detailBodyName = null;
     this.initialize();
   }
 
@@ -169,17 +178,19 @@ export class SolarSystemView {
     axialPivot.rotation.z = data.axialTilt;
     axialPivot.position.x = data.orbitRadius;
     orbitPivot.add(axialPivot);
-    const material = new THREE.MeshStandardMaterial({ color: data.color, roughness: data.name === 'Earth' ? 0.58 : 0.76, metalness: 0 });
+    const material = new THREE.MeshStandardMaterial({ color: data.color, roughness: data.roughness ?? (data.name === 'Earth' ? 0.58 : 0.76), metalness: 0 });
+    if (data.albedoGain) this.applyAlbedo(material, data.albedoGain, material.color);
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(data.radius, 64, 48), material);
     mesh.castShadow = true; mesh.receiveShadow = true;
     axialPivot.add(mesh);
     // Rotation marker removed
     if (data.name === 'Earth') this.addEarthAtmosphere(axialPivot, data.radius);
-    if (data.hasRings) this.addSaturnRings(axialPivot, data.radius);
+    if (data.hasRings) this.addSaturnRings(axialPivot, data.radius, data.albedoGain);
     const orbit = this.createOrbit(data.orbitRadius);
     this.scene.add(orbit);
-    this.registerBody(data.name, { mesh, root: axialPivot, rotationPeriod: data.rotationPeriod, orbitPeriod: data.orbitPeriod, radius: data.radius, orbitPivot, orbit });
-    this.loadTexture(data.name, material);
+    this.registerBody(data.name, { mesh, root: axialPivot, rotationPeriod: data.rotationPeriod, orbitPeriod: data.orbitPeriod, radius: data.radius, orbitPivot, orbit, albedoGain: data.albedoGain, textureHigh: data.textureHigh });
+    if (data.albedoGain) this.loadPlanetTexture(data.name);
+    else this.loadTexture(data.name, material);
   }
 
   createMoon() {
@@ -247,8 +258,68 @@ export class SolarSystemView {
     }, undefined, (error) => console.warn(`Could not load ${name} texture; keeping procedural material.`, error));
   }
 
+  // Divides out the warm tint of the shared Sun light, so these maps show their true colours under it.
+  applyAlbedo(material, gain, base = WHITE) {
+    const { r, g, b } = this.sunLight.color;
+    material.color.setRGB(base.r * gain / r, base.g * gain / g, base.b * gain / b);
+  }
+
+  prepareSurfaceMap(texture) {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    return texture;
+  }
+
+  // On failure the planet keeps its flat data colour, and a selected planet keeps its standard map.
+  loadPlanetTexture(name) {
+    const body = this.bodies.get(name);
+    this.textureLoader.load(CELESTIAL_BODIES[name].texture, (texture) => {
+      body.standardMap = this.prepareSurfaceMap(texture);
+      if (!body.detailMap) body.mesh.material.map = texture;
+      this.applyAlbedo(body.mesh.material, body.albedoGain);
+      body.mesh.material.needsUpdate = true;
+    }, undefined, (error) => console.warn(`Could not load ${name} texture; keeping procedural material.`, error));
+  }
+
+  // Only the selected planet holds a high-resolution map, which bounds GPU memory on ordinary computers.
+  setDetailBody(name) {
+    if (this.detailBodyName === name) return;
+    const previous = this.bodies.get(this.detailBodyName);
+    if (previous?.detailMap) {
+      previous.mesh.material.map = previous.standardMap ?? null;
+      previous.mesh.material.needsUpdate = true;
+      previous.detailMap.dispose();
+      previous.detailMap = null;
+    }
+    this.detailBodyName = name;
+    const body = this.bodies.get(name);
+    const canAfford = !this.isCompactDevice() && this.renderer.capabilities.maxTextureSize >= 4096;
+    if (!body?.textureHigh || !canAfford) return;
+    this.textureLoader.load(body.textureHigh, (texture) => {
+      if (this.detailBodyName !== name) { texture.dispose(); return; }
+      body.detailMap = this.prepareSurfaceMap(texture);
+      body.mesh.material.map = texture;
+      this.applyAlbedo(body.mesh.material, body.albedoGain);
+      body.mesh.material.needsUpdate = true;
+    }, undefined, (error) => console.warn(`Could not load high-resolution ${name} texture; keeping the standard map.`, error));
+  }
+
+  isCompactDevice() {
+    return window.matchMedia?.('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 640;
+  }
+
   addEarthAtmosphere(parent, radius) {
-    parent.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.04, 48, 36), new THREE.MeshBasicMaterial({ color: 0x78caff, transparent: true, opacity: 0.14, side: THREE.BackSide, depthWrite: false })));
+    // Fades to nothing at the shell's outer edge, so the atmosphere reads as a glow rather than a second sphere.
+    parent.add(new THREE.Mesh(new THREE.SphereGeometry(radius * 1.04, 48, 36), new THREE.ShaderMaterial({
+      uniforms: { glowColor: { value: new THREE.Color(0x78caff) } },
+      vertexShader: 'varying vec3 vNormal; varying vec3 vView; void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vNormal = normalMatrix * normal; vView = -mv.xyz; gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vView; void main() { float glow = smoothstep(0.0, 0.28, abs(dot(normalize(vNormal), normalize(vView)))); gl_FragColor = vec4(glowColor, 0.3 * glow * glow);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
+      transparent: true,
+      side: THREE.BackSide,
+      depthWrite: false,
+    })));
     const cloudMaterial = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       transparent: true,
@@ -272,10 +343,30 @@ export class SolarSystemView {
     }, undefined, (error) => console.warn('Could not load Earth cloud texture; keeping the transparent atmospheric shell.', error));
   }
 
-  addSaturnRings(parent, radius) {
-    const ring = new THREE.Mesh(new THREE.RingGeometry(radius * 1.35, radius * 2.42, 128), new THREE.MeshStandardMaterial({ color: 0xdcc791, transparent: true, opacity: 0.73, side: THREE.DoubleSide, roughness: 0.86, depthWrite: false }));
+  // The ring map is a radial strip; these radii align its Cassini Division and Encke Gap with Saturn's real rings.
+  addSaturnRings(parent, radius, albedoGain) {
+    const inner = radius * 1.2;
+    const outer = radius * 2.33;
+    const geometry = new THREE.RingGeometry(inner, outer, 192, 6);
+    const { position, uv } = geometry.attributes;
+    for (let index = 0; index < position.count; index += 1) {
+      uv.setXY(index, (Math.hypot(position.getX(index), position.getY(index)) - inner) / (outer - inner), 0.5);
+    }
+    const material = new THREE.MeshStandardMaterial({ color: 0xdcc791, transparent: true, opacity: 0.73, side: THREE.DoubleSide, roughness: 0.86, depthWrite: false });
+    const ring = new THREE.Mesh(geometry, material);
     ring.rotation.x = Math.PI / 2;
     parent.add(ring);
+    this.textureLoader.load('assets/textures/saturn-rings.png', (texture) => {
+      this.prepareSurfaceMap(texture).wrapS = THREE.ClampToEdgeWrapping;
+      material.map = texture;
+      this.applyAlbedo(material, albedoGain * RING_ALBEDO_BOOST, RING_TINT);
+      // A faint self-glow keeps the ring structure legible when viewed from its unlit face.
+      material.emissive.set(0xffffff);
+      material.emissiveMap = texture;
+      material.emissiveIntensity = 0.12;
+      material.opacity = 0.96;
+      material.needsUpdate = true;
+    }, undefined, (error) => console.warn('Could not load Saturn ring texture; keeping the solid ring.', error));
   }
 
   createOrbit(radius, color = 0x7692be, opacity = 0.34) {
@@ -310,9 +401,10 @@ export class SolarSystemView {
     this.bodies.forEach((candidate) => {
       const selected = candidate.name === name;
       candidate.mesh.material.emissive?.set(selected ? 0x1b4e72 : 0x000000);
-      candidate.mesh.material.emissiveIntensity = selected ? 0.38 : 0;
+      candidate.mesh.material.emissiveIntensity = selected ? (candidate.albedoGain ? 0.08 : 0.38) : 0;
     });
     if (focus) this.focusBody(name);
+    this.setDetailBody(name);
     this.onSelect?.(name);
   }
 
@@ -325,9 +417,13 @@ export class SolarSystemView {
     const radius = earthMoon ? 4.5 : body.radius;
     const distance = Math.max(radius * 4.2, name === 'Sun' ? 15 : 3.1);
     const viewDirection = this.camera.position.clone().sub(this.controls.target).normalize();
+    // Frame these planets toward their day side, so a focus never opens on an unlit disk.
+    if (body.albedoGain) viewDirection.add(target.clone().negate().normalize().multiplyScalar(SUNWARD_FOCUS_BIAS)).normalize();
     this.focusTarget = target;
     this.focusPosition = target.clone().add(viewDirection.multiplyScalar(distance)).add(new THREE.Vector3(radius * 0.25, radius * 0.65, radius * 0.25));
     this.focusOffset.copy(this.focusPosition).sub(this.focusTarget);
+    this.focusPan.set(0, 0, 0);
+    this.focusSettled = false;
     this.controls.minDistance = Math.max(radius * 1.25, 0.6);
     this.controls.maxDistance = earthMoon ? 44 : Math.max(55, radius * 32);
   }
@@ -347,13 +443,16 @@ export class SolarSystemView {
     selected.root.getWorldPosition(target);
     this.focusTarget = target;
     this.focusOffset.copy(this.camera.position).sub(this.controls.target);
-    this.focusPosition = target.clone().add(this.focusOffset);
+    this.focusPan.copy(this.controls.target).sub(target);
+    this.focusSettled = false;
+    this.focusPosition = target.clone().add(this.focusPan).add(this.focusOffset);
   }
 
   returnToOverview() {
     this.artemis?.releaseCamera();
     this.followSelected = false;
     this.selectedName = null;
+    this.setDetailBody(null);
     this.focusTarget = this.initialTarget.clone();
     this.focusPosition = this.initialCameraPosition.clone();
     this.controls.minDistance = 4;
@@ -366,18 +465,24 @@ export class SolarSystemView {
     if (this.selectedName && (this.followSelected || this.focusTarget)) {
       const selected = this.bodies.get(this.selectedName);
       if (selected) {
+        // OrbitControls applies zoom and pan inside its input handlers, so read the viewer's framing before moving on.
+        if (this.focusSettled) {
+          this.focusOffset.copy(this.camera.position).sub(this.controls.target);
+          this.focusPan.copy(this.controls.target).sub(this.focusTarget);
+        }
         const worldPosition = new THREE.Vector3();
         selected.root.getWorldPosition(worldPosition);
         this.focusTarget.copy(worldPosition);
-        this.focusPosition.copy(worldPosition).add(this.focusOffset);
+        this.focusPosition.copy(worldPosition).add(this.focusPan).add(this.focusOffset);
       }
     }
     const alpha = 1 - Math.exp(-CAMERA_LERP_SPEED * Math.min(delta, 0.1));
     if (this.selectedName && this.bodies.has(this.selectedName)) {
       // Keep the camera centered on the moving planet.
       this.currentTarget.copy(this.focusTarget);
-      this.controls.target.copy(this.focusTarget);
+      this.controls.target.copy(this.focusTarget).add(this.focusPan);
       this.camera.position.copy(this.focusPosition);
+      this.focusSettled = true;
     } else {
       this.currentTarget.lerp(this.focusTarget, alpha);
       this.controls.target.lerp(this.focusTarget, alpha);
@@ -407,7 +512,7 @@ export class SolarSystemView {
         moon.mesh.rotation.y = -moon.moonOrbit.rotation.y;
       }
     }
-    this.sun?.update(delta, isPlaying ? delta * speed : 0, this.camera);
+    this.sun?.update(delta, isPlaying ? delta * Math.min(speed, SUN_MAX_ANIMATION_SPEED) : 0, this.camera);
     if (this.artemis?.active) this.artemis.update(delta, speed, isPlaying);
     if (!this.artemis?.active || !this.artemis.cameraMode) this.updateCamera(delta);
     this.controls.update();

@@ -5,6 +5,12 @@ import { CELESTIAL_BODIES } from './data/celestial-bodies.js';
 import { ArtemisControls } from './mission/artemis-controls.js';
 import { t } from './i18n/translations.js';
 
+const DEFAULT_SPEED = 1;
+// The galaxy, and the Earth–Moon motion behind the Artemis replay, were designed for speeds up to 5×.
+const DESIGNED_MAX_SPEED = 5;
+const PAUSE_ICON = 'M4 2.5h3v11H4zM9 2.5h3v11H9z';
+const PLAY_ICON = 'M4.5 2.2 13 8l-8.5 5.8z';
+
 let currentLanguage = 'en';
 
 function translate(key) {
@@ -37,8 +43,6 @@ const uiPairs = {
   'Read the research': 'Ler a pesquisa',
   'Gaia research': 'Pesquisa Gaia',
   'Galactic warp research': 'Pesquisa sobre a deformação galáctica',
-  'Pause': 'Pausar',
-  'Play': 'Reproduzir',
   'Reset camera': 'Reiniciar câmera',
   'Hide galactic orbit': 'Ocultar órbita galáctica',
   'Show galactic orbit': 'Mostrar órbita galáctica',
@@ -54,10 +58,10 @@ const uiPairs = {
   'Earth & Moon': 'Terra e Lua',
   'Show Artemis II Mission': 'Mostrar missão Artemis II',
   'Full Solar System': 'Sistema Solar completo',
-  'Animation speed': 'Velocidade da animação',
   'Drag to orbit · scroll to zoom · right-drag to pan · click a label to explore': 'Arraste para orbitar · role para ampliar · botão direito para mover · clique em um rótulo para explorar',
   'Drag to orbit, scroll or pinch to zoom, and right-drag or two-finger drag to pan. Planet sizes, distances, and animation speeds are magnified for learning and are not to scale.': 'Arraste para orbitar, role ou use dois dedos para ampliar e botão direito ou dois dedos para mover. Tamanhos, distâncias e velocidades são ampliados para fins educacionais e não estão em escala.',
-  'Galactic and planetary animations use independently accelerated educational time scales; they are not synchronized to physical time.': 'As animações galácticas e planetárias usam escalas de tempo educacionais aceleradas e independentes; não são sincronizadas com o tempo físico.',
+  'Galactic and planetary animations use independently accelerated educational time scales; they are not synchronized to physical time. Play, Pause, and speed controls are inside the Solar System view.': 'As animações galácticas e planetárias usam escalas de tempo educacionais aceleradas e independentes; não são sincronizadas com o tempo físico. Os controles de reprodução, pausa e velocidade estão dentro da vista do Sistema Solar.',
+  "Planet textures: Jupiter by NASA/JPL/Space Science Institute. Mercury, Venus, Mars, Saturn and its rings, Uranus, and Neptune resized and adapted (Neptune's 1989 storms removed) from:": 'Texturas dos planetas: Júpiter por NASA/JPL/Space Science Institute. Mercúrio, Vênus, Marte, Saturno e seus anéis, Urano e Netuno redimensionados e adaptados (tempestades de 1989 de Netuno removidas) a partir de:',
   'Galactic orbit: approximately 230 million years': 'Órbita galáctica: aproximadamente 230 milhões de anos',
   "Sun's orbital speed: approximately 230 km/s": 'Velocidade orbital do Sol: aproximadamente 230 km/s',
   'Distance from galactic centre: approximately 26,000 light-years': 'Distância ao centro galáctico: aproximadamente 26.000 anos-luz',
@@ -159,6 +163,8 @@ function refreshLanguage() {
   // Update dynamic controls based on their actual state.
   if (typeof state !== 'undefined') {
     updatePlayButton();
+    updateSpeedDock();
+    updateFullscreenButton();
     updateGalaxyOrbitButton();
     updatePlanetaryOrbitButton();
 
@@ -196,6 +202,10 @@ const elements = {
   planetaryOrbits: document.querySelector('#solar-paths'),
   speed: document.querySelector('#speed'),
   speedOutput: document.querySelector('#out'),
+  dock: document.querySelector('#sim-dock'),
+  speedPresets: document.querySelectorAll('#speed-presets button'),
+  speedReset: document.querySelector('#speed-reset'),
+  solarFullscreen: document.querySelector('#solar-fullscreen'),
   selector: document.querySelector('#body-selector'),
   previous: document.querySelector('#previous-body'),
   next: document.querySelector('#next-body'),
@@ -217,7 +227,8 @@ const elements = {
 
 const state = {
   isPlaying: true,
-  speed: 1,
+  speed: DEFAULT_SPEED,
+  speedCapped: false,
   lastFrameTime: 0,
   isGalaxyOrbitVisible: true,
   arePlanetaryOrbitsVisible: true,
@@ -373,14 +384,62 @@ function navigateBody(direction) {
 }
 
 function updatePlayButton() {
-  elements.toggle.textContent = state.isPlaying
-    ? translate('pause')
-    : translate('play');
+  const label = state.isPlaying ? translate('pause') : translate('play');
 
-  elements.toggle.setAttribute(
-    'aria-pressed',
-    String(!state.isPlaying)
+  elements.toggle.setAttribute('aria-label', label);
+  elements.toggle.title = label;
+  document.querySelector('#toggle-icon').setAttribute(
+    'd',
+    state.isPlaying ? PAUSE_ICON : PLAY_ICON
   );
+}
+
+function formatSpeed(speed) {
+  const locale = currentLanguage === 'pt-BR' ? 'pt-BR' : 'en';
+  return `${speed.toLocaleString(locale, { maximumFractionDigits: 1 })}×`;
+}
+
+function updateSpeedDock() {
+  const capped = state.speedCapped && state.speed > DESIGNED_MAX_SPEED;
+  const text = capped
+    ? `${formatSpeed(DESIGNED_MAX_SPEED)} · ${translate('missionSpeedLimit')}`
+    : formatSpeed(state.speed);
+  const isPreset = [...elements.speedPresets]
+    .some((button) => Number(button.dataset.speed) === state.speed);
+
+  elements.speedOutput.value = text;
+  elements.speedOutput.textContent = text;
+  elements.speedOutput.classList.toggle('is-custom', !isPreset);
+  elements.dock.dataset.capped = String(capped);
+  elements.dock.setAttribute('aria-label', translate('simulationControls'));
+  elements.speed.setAttribute('aria-label', translate('speed'));
+  elements.speed.setAttribute('aria-valuetext', text);
+  elements.speedReset.setAttribute('aria-label', translate('resetSpeed'));
+  elements.speedReset.title = translate('resetSpeed');
+  document.querySelector('#speed-presets').setAttribute('aria-label', translate('speedPresets'));
+
+  elements.speedPresets.forEach((button) => {
+    const speed = Number(button.dataset.speed);
+    button.textContent = formatSpeed(speed);
+    button.setAttribute('aria-label', `${translate('speed')} ${formatSpeed(speed)}`);
+    button.setAttribute('aria-pressed', String(speed === state.speed));
+  });
+}
+
+// The range input is logarithmic so 0.1×, 1×, 10× and 100× sit evenly along it.
+function setSpeed(speed) {
+  state.speed = speed;
+  elements.speed.value = String(Math.log10(speed));
+  updateSpeedDock();
+}
+
+function updateFullscreenButton() {
+  const label = translate(
+    document.fullscreenElement === elements.solarHost ? 'exitFullscreen' : 'fullscreen'
+  );
+
+  elements.solarFullscreen.setAttribute('aria-label', label);
+  elements.solarFullscreen.title = label;
 }
 
 function updateGalaxyOrbitButton() {
@@ -420,13 +479,10 @@ elements.toggle.addEventListener('click', () => {
 
 elements.reset.addEventListener('click', () => {
   state.isPlaying = true;
-  state.speed = 1;
   state.isGalaxyOrbitVisible = true;
   state.arePlanetaryOrbitsVisible = true;
 
-  elements.speed.value = '1';
-  elements.speedOutput.value = '1×';
-  elements.speedOutput.textContent = '1×';
+  setSpeed(DEFAULT_SPEED);
 
   galaxy.reset();
   solarSystem.reset();
@@ -451,11 +507,28 @@ elements.planetaryOrbits.addEventListener('click', () => {
 });
 
 elements.speed.addEventListener('input', (event) => {
-  state.speed = Number(event.target.value);
-  const value = `${state.speed}×`;
-  elements.speedOutput.value = value;
-  elements.speedOutput.textContent = value;
+  state.speed = Number((10 ** Number(event.target.value)).toPrecision(2));
+  updateSpeedDock();
 });
+
+elements.speedPresets.forEach((button) => {
+  button.addEventListener('click', () => setSpeed(Number(button.dataset.speed)));
+});
+
+elements.speedReset.addEventListener('click', () => setSpeed(DEFAULT_SPEED));
+
+elements.solarFullscreen.hidden = !document.fullscreenEnabled;
+
+elements.solarFullscreen.addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement === elements.solarHost) await document.exitFullscreen();
+    else await elements.solarHost.requestFullscreen();
+  } catch (error) {
+    console.warn('Fullscreen is unavailable in this browser.', error);
+  }
+});
+
+document.addEventListener('fullscreenchange', updateFullscreenButton);
 
 elements.selector.addEventListener('change', (event) => {
   if (event.target.value) {
@@ -520,6 +593,12 @@ new ResizeObserver(() => {
   solarSystem.resize();
 }).observe(document.body);
 
+new ResizeObserver(() => solarSystem.resize()).observe(elements.solarHost);
+
+updatePlayButton();
+updateSpeedDock();
+updateFullscreenButton();
+
 function animate(now) {
   const delta = state.lastFrameTime
     ? Math.min((now - state.lastFrameTime) / 1000, 0.06)
@@ -527,8 +606,19 @@ function animate(now) {
 
   state.lastFrameTime = now;
 
-  galaxy.update(delta, state.speed, state.isPlaying);
-  solarSystem.update(delta, state.speed, state.isPlaying);
+  const missionActive = Boolean(solarSystem.artemis?.active);
+
+  if (missionActive !== state.speedCapped) {
+    state.speedCapped = missionActive;
+    updateSpeedDock();
+  }
+
+  galaxy.update(delta, Math.min(state.speed, DESIGNED_MAX_SPEED), state.isPlaying);
+  solarSystem.update(
+    delta,
+    missionActive ? Math.min(state.speed, DESIGNED_MAX_SPEED) : state.speed,
+    state.isPlaying
+  );
   missionControls.syncGlobal();
 
   window.requestAnimationFrame(animate);

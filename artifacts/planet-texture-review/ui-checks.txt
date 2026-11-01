@@ -1,0 +1,31 @@
+Browser: Microsoft Edge via Playwright, real GPU (NVIDIA GeForce GTX 1050 Ti, Direct3D 11). Mobile and tablet are touch-emulated viewports, not physical devices.
+
+PASS - Earth, Moon assets byte-identical to baseline
+PASS - All seven planets and rings have a loaded map; no 4xx responses - Mercury:2048 Venus:2048 Mars:2048 Jupiter:2048 Saturn:2048 Uranus:1024 Neptune:2048
+PASS - Only one speed control set exists in the page
+PASS - Preset click changes orbital rate immediately and proportionally (Neptune) - ratios 10×=10.1 100×=99.9 0.1×=0.10
+PASS - Axial rotation scales with the same clock and formula - Jupiter 3.83 rad/s, expected 3.79
+PASS - Slider reaches intermediate speed; readout and valuetext update; no preset pressed
+PASS - Reset speed restores 1× without unpausing or moving camera
+PASS - Pause freezes orbit, rotation; resume has no jump - Neptune moved 2.5e-4 rad 100 ms after resume
+PASS - Paused: rotate, zoom, pan all work (overview)
+PASS - Paused + focused planet: rotate, zoom, pan persist and stay centred after resume
+PASS - High-res map loads on selection, releases on change; low-res kept
+PASS - Keyboard: tab order reaches dock, Space toggles, focus ring visible
+PASS - Dock does not intercept canvas outside itself; drag from outside passes under it
+PASS - Fullscreen: dock inside fullscreen element, works, renderer resizes, Esc restores - [1280,900]
+PASS - Language switch: pt-BR labels, decimal comma; simulation, camera, and speed not reset - Velocidade 0,1×
+PASS - Artemis: mission replay rate unchanged by sim speed; sim capped at 5× with visible notice; legend clear of dock - replay 0.0083/s at 1×, 0.0084/s at 100×; Moon 11.6 rad/s
+PASS - Milky Way explorer still animates, clamped to its designed range - 100× runs galaxy at 5.0× ; 12 labels
+PASS - Selection & panel, Earth-Moon button, overview still work
+PASS - Frame timing with all planets at 100× (desktop GTX 1050 Ti) - median 13.3 ms, p95 13.5 ms
+PASS - No JS errors or warnings during desktop session
+PASS - Fallback: blocked textures keep flat colours, no crash, rings stay solid
+PASS - Fallback: high-res failure keeps standard map
+PASS - mobile-390: dock fits, targets ≥32 px (≥24 at 320), no overflow, no high-res tier, tap works - dock 12% of viewport height, buttons [36,40]…
+PASS - mobile-390: Artemis legend, HUD clear of dock; capped notice visible - {"legend":false,"out":"block","overlapOut":false}
+PASS - mobile-320: dock fits, targets ≥32 px (≥24 at 320), no overflow, no high-res tier, tap works - dock 15% of viewport height, buttons [33,40]…
+PASS - tablet-768: dock fits, targets ≥32 px (≥24 at 320), no overflow, no high-res tier, tap works - dock 13% of viewport height, buttons [40,40]…
+PASS - tests/artemis-browser.html: all checks - 14 passed · 0 failed
+
+27 passed, 0 failed

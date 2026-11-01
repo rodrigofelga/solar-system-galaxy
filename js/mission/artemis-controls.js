@@ -47,7 +47,7 @@ export class ArtemisControls {
     }
   }
 
-  syncGlobal() { const global = this.getGlobal(); const stamp = `${global.isPlaying}/${global.speed}`; if (stamp !== this.globalStamp) { this.globalStamp = stamp; this.sync(); } }
+  syncGlobal() { const global = this.getGlobal(); const stamp = `${global.isPlaying}`; if (stamp !== this.globalStamp) { this.globalStamp = stamp; this.sync(); } }
 
   sync() {
     const mission = this.mission; if (!mission?.active || !this.phases) return;
@@ -65,7 +65,7 @@ export class ArtemisControls {
     const play = document.querySelector('#mission-play');
     play.textContent = !global.isPlaying ? 'Resume global + mission' : mission.playing ? 'Pause mission' : 'Play mission';
     play.setAttribute('aria-pressed', String(!mission.playing));
-    document.querySelector('#mission-global-note').textContent = !global.isPlaying ? 'Held by global Pause. Resume here or use the global Play control.' : global.speed === 0 ? 'Held by global speed 0×. Increase global speed to advance.' : !mission.playing ? 'Orion replay paused. Earth and the Moon continue their normal motion.' : `Mission ${mission.speed}× × global ${global.speed}×. Chapter pacing is accelerated.`;
+    document.querySelector('#mission-global-note').textContent = !global.isPlaying ? 'Held by global Pause. Resume here or use the global Play control.' : !mission.playing ? 'Orion replay paused. Earth and the Moon continue their normal motion.' : `Mission ${mission.speed}×, independent of simulation speed. Chapter pacing is accelerated.`;
     const path = document.querySelector('#mission-path'); path.textContent = mission.trajectoryVisible ? 'Hide trajectory' : 'Show trajectory'; path.setAttribute('aria-pressed', String(mission.trajectoryVisible));
     document.querySelectorAll('[data-mission-camera]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.missionCamera === mission.cameraMode)));
     document.querySelectorAll('#mission-chapters button').forEach((button, index) => { if (index === mission.phase) button.setAttribute('aria-current', 'step'); else button.removeAttribute('aria-current'); });
