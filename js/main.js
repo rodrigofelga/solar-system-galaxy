@@ -5,6 +5,7 @@ import { CELESTIAL_BODIES } from './data/celestial-bodies.js';
 import { ArtemisControls } from './mission/artemis-controls.js';
 import { renderCrewSection } from './mission/crew-section.js';
 import { t } from './i18n/translations.js';
+import { localizedBody } from './i18n/celestial-bodies-pt.js';
 
 const DEFAULT_SPEED = 1;
 // The galaxy, and the Earth–Moon motion behind the Artemis replay, were designed for speeds up to 5×.
@@ -51,6 +52,9 @@ const uiPairs = {
   'Hide planetary orbits': 'Ocultar órbitas planetárias',
   'Show planetary orbits': 'Mostrar órbitas planetárias',
   'Explore': 'Explorar',
+  'Close celestial body information': 'Fechar informações do astro',
+  'Previous celestial body': 'Astro anterior',
+  'Next celestial body': 'Próximo astro',
   'Select a body': 'Selecione um astro',
   'Previous': 'Anterior',
   'Next': 'Próximo',
@@ -65,7 +69,7 @@ const uiPairs = {
   'Galactic and planetary animations use independently accelerated educational time scales; they are not synchronized to physical time. Play, Pause, and speed controls are inside the Solar System view.': 'As animações galácticas e planetárias usam escalas de tempo educacionais aceleradas e independentes; não são sincronizadas com o tempo físico. Os controles de reprodução, pausa e velocidade estão dentro da vista do Sistema Solar.',
   "Planet textures: Jupiter by NASA/JPL/Space Science Institute. Mercury, Venus, Mars, Saturn and its rings, Uranus, and Neptune resized and adapted (Neptune's 1989 storms removed) from:": 'Texturas dos planetas: Júpiter por NASA/JPL/Space Science Institute. Mercúrio, Vênus, Marte, Saturno e seus anéis, Urano e Netuno redimensionados e adaptados (tempestades de 1989 de Netuno removidas) a partir de:',
   'Galactic orbit: approximately 230 million years': 'Órbita galáctica: aproximadamente 230 milhões de anos',
-  "Sun's orbital speed: approximately 230 km/s": 'Velocidade orbital do Sol: aproximadamente 230 km/s',
+  "Sun's orbital speed: approximately 200–230 km/s": 'Velocidade orbital do Sol: aproximadamente 200–230 km/s',
   'Distance from galactic centre: approximately 26,000 light-years': 'Distância ao centro galáctico: aproximadamente 26.000 anos-luz',
   'Created by Rodrigo Felga de Castro. Educational model, not to scale. The Milky Way is a stylized depiction. Planet sizes, distances, orbital speeds, and the Earth–Moon spacing are magnified for learning; texture maps and facts are documented in the project attribution notes.':
   'Criado por Rodrigo Felga de Castro. Modelo educacional, fora de escala. A Via Láctea é uma representação estilizada. Os tamanhos dos planetas, as distâncias, as velocidades orbitais e a distância entre a Terra e a Lua foram ampliados para fins didáticos; os mapas de textura e as informações científicas estão documentados nas notas de atribuição do projeto.',
@@ -88,6 +92,10 @@ const uiPairs = {
   'Uranus': 'Urano',
   'Neptune': 'Netuno',
   'Sun': 'Sol',
+  'Disk thickness and outer warp are exaggerated for visibility. Drag to explore from any angle.': 'A espessura do disco e a deformação externa são exageradas para facilitar a visualização. Arraste para explorar de qualquer ângulo.',
+  'Sagittarius A* close-up · greatly enlarged · drag to orbit the gas disk · Galaxy overview returns to the full galaxy': 'Sagittarius A* de perto · muito ampliado · arraste para orbitar o disco de gás · Visão geral da galáxia volta à galáxia completa',
+  'SAGITTARIUS A* · ENLARGED ILLUSTRATION': 'SAGITTARIUS A* · ILUSTRAÇÃO AMPLIADA',
+  'Gas, light ring, and wind are schematic': 'O gás, o anel de luz e o vento são esquemáticos',
   'MILKY WAY': 'VIA LÁCTEA',
   '3D EXPLORER': 'EXPLORADOR 3D'
 };
@@ -125,6 +133,8 @@ const translatableSelectors = [
   '#galaxy-heading',
   '.heading > span',
   '.galaxy-badge',
+  '.galaxy-badge span',
+  '#galaxy-scale-badge',
   '#galaxy-status',
   '.galaxy-controls button',
   '.galaxy-controls label',
@@ -141,13 +151,21 @@ const translatableSelectors = [
   '#panel-focus',
   '#panel-moon',
   '#body-name',
-  '#body-details dt'
+  '#body-details dt',
+  '.body-data h3'
 ];
+
+const translatableLabels = ['#close-panel', '#previous-body', '#next-body'];
 
 function refreshLanguage() {
   document.querySelectorAll(
     translatableSelectors.join(',')
   ).forEach(translateTextNodes);
+
+  translatableLabels.forEach((selector) => {
+    const element = document.querySelector(selector);
+    element.setAttribute('aria-label', translatedText(element.getAttribute('aria-label')));
+  });
 
   // Preserve scientific research links in the galactic disclaimer.
   const disclaimer = document.querySelector('.galaxy-disclaimer');
@@ -183,6 +201,7 @@ function setLanguage(language) {
   refreshLanguage();
   renderCrewSection(currentLanguage);
   journey?.setLanguage(currentLanguage);
+  galaxy.setLanguage(currentLanguage);
 
   if (state.selectedName) {
     renderPanel(state.selectedName);
@@ -309,7 +328,7 @@ function populateSelector() {
 }
 
 function renderPanel(name) {
-  const body = CELESTIAL_BODIES[name];
+  const body = localizedBody(CELESTIAL_BODIES[name], currentLanguage);
   if (!body) return;
 
   elements.bodyName.textContent = currentLanguage === 'pt-BR'
@@ -318,7 +337,9 @@ function renderPanel(name) {
 
   elements.classification.textContent = body.classification;
   elements.thumbnail.src = body.texture;
-  elements.thumbnail.alt = `${body.name} global texture map`;
+  elements.thumbnail.alt = currentLanguage === 'pt-BR'
+    ? `Mapa global de textura: ${uiPairs[body.name] || body.name}`
+    : `${body.name} global texture map`;
   elements.thumbnail.hidden = false;
   elements.description.textContent = body.description;
 

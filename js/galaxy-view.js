@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GALACTIC_FEATURES } from './data/galactic-features.js';
+import { localizedFeature } from './i18n/galactic-features-pt.js';
 import { GalacticBlackHole } from './galactic-black-hole.js';
 
 const TAU = Math.PI * 2;
@@ -251,15 +252,24 @@ export class GalaxyView {
     });
   }
 
-  selectFeature(id, focus = true, touring = false) {
-    if (!this.available) return;
-    const feature = GALACTIC_FEATURES.find((item) => item.id === id);
-    if (!feature) return;
-    if (!touring) this.stopTour();
-    this.viewPreset = null;
-    this.selected = id;
-    this.setBlackHoleFocus(id === 'black-hole');
-    this.selector.value = id;
+  setLanguage(language) {
+    this.language = language;
+    const isPortuguese = language === 'pt-BR';
+    GALACTIC_FEATURES.forEach((feature) => {
+      const { label } = localizedFeature(feature, language);
+      const { button } = this.anchors.get(feature.id) ?? {};
+      if (button) {
+        button.textContent = label;
+        button.setAttribute('aria-label', `${isPortuguese ? 'Explorar' : 'Explore'} ${label}`);
+      }
+      const option = this.selector?.querySelector(`option[value="${feature.id}"]`);
+      if (option) option.textContent = label;
+    });
+    if (this.selected && !document.querySelector('#galaxy-info').hidden) this.renderFeature(GALACTIC_FEATURES.find((item) => item.id === this.selected));
+  }
+
+  renderFeature(source) {
+    const feature = localizedFeature(source, this.language);
     document.querySelector('#galaxy-info-title').textContent = feature.label;
     document.querySelector('#galaxy-info-scale').textContent = feature.scale;
     document.querySelector('#galaxy-info-description').textContent = feature.description;
@@ -276,8 +286,20 @@ export class GalaxyView {
       return wrapper;
     }));
     details.hidden = !feature.details;
-    const source = document.querySelector('#galaxy-info-source');
-    source.href = feature.source; source.textContent = feature.sourceLabel;
+    const sourceLink = document.querySelector('#galaxy-info-source');
+    sourceLink.href = feature.source; sourceLink.textContent = feature.sourceLabel;
+  }
+
+  selectFeature(id, focus = true, touring = false) {
+    if (!this.available) return;
+    const feature = GALACTIC_FEATURES.find((item) => item.id === id);
+    if (!feature) return;
+    if (!touring) this.stopTour();
+    this.viewPreset = null;
+    this.selected = id;
+    this.setBlackHoleFocus(id === 'black-hole');
+    this.selector.value = id;
+    this.renderFeature(feature);
     document.querySelector('#galaxy-info').hidden = false;
     this.anchors.forEach(({ button }, key) => button.setAttribute('aria-pressed', String(key === id)));
     if (id === 'dark-halo') {

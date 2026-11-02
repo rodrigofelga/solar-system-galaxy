@@ -19,15 +19,15 @@ planetOffset(t)   = orbit × (cos a(t) × ECLIPTIC_X + sin a(t) × ECLIPTIC_Y)
 
 ## Time and scale
 
-Both clocks are compressed, by very different amounts, so the trails illustrate the model and are not measured paths.
+Both clocks are compressed, by very different amounts, so the trails illustrate the model and are not measured paths. The journey panel states this on screen, in both languages: about 230 million Earth years for one galactic orbit, against about 60 seconds at 1×, so each second stands for about 3.8 million years of galactic travel.
 
 | Quantity | Real | Shown |
 | --- | --- | --- |
 | Earth orbit | 1 year | 16 s at 1× |
-| Galactic orbit | about 220–250 million years | about 60 s at 1×, about 3.7 Earth orbits |
-| Sun speed around the galaxy | very roughly 200–230 km/s | 2.73 units/s |
-| Earth speed around the Sun | about 30 km/s | 0.82 units/s |
-| Sun-to-Earth speed ratio | about 7.7 to 1 | about 3.3 to 1 |
+| Galactic orbit | about 230 million years (NASA); published estimates run from roughly 220 to 250 million | about 60 s at 1×, about 3.7 Earth orbits |
+| Sun speed around the galaxy | 720,000 km/h, about 200 km/s (NASA); stellar-kinematics measurements are nearer 230–240 km/s | 2.73 units/s |
+| Earth speed around the Sun | 29.8 km/s (NASA) | 0.82 units/s |
+| Sun-to-Earth speed ratio | about 6.7 to 7.7 to 1, depending on the Sun speed used | about 3.3 to 1 |
 | Solar System size | about 9 billion km across | enlarged about 16 million times, with planet sizes enlarged further |
 
 The Sun is still faster than every planet, as it is in reality. The planets' waves are exaggerated because the ratio is smaller than the real one.
@@ -46,7 +46,8 @@ The Sun is still faster than every planet, as it is in reality. The planets' wav
 - The video "The helical model - our solar system is a vortex" was the prompt for this feature. Only its YouTube page title was accessible during development and the video itself was not watched, so nothing here is based on or copied from its footage.
 - Ethan Siegel, [Our Motion Through Space Isn't A Vortex](https://www.forbes.com/sites/startswithabang/2018/08/30/our-motion-through-space-isnt-a-vortex-but-something-far-more-interesting/), Forbes, 2018.
 - GRAVITY Collaboration, [A geometric distance measurement to the Galactic center black hole](https://www.aanda.org/articles/aa/abs/2019/05/aa35656-19/aa35656-19.html), A&A, 2019.
-- NASA, [Planetary fact sheets](https://nssdc.gsfc.nasa.gov/planetary/factsheet/).
+- NASA, [Planetary fact sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/), last updated 18 March 2025. The planets' orbital speeds in `journey-model.js` were checked against it and match.
+- NASA, [Sun facts](https://science.nasa.gov/sun/facts/): about 230 million years per trip around the Milky Way, at an average of 720,000 km/h.
 - Wikipedia, [Galactic coordinate system](https://en.wikipedia.org/wiki/Galactic_coordinate_system), [Ecliptic](https://en.wikipedia.org/wiki/Ecliptic) and [Galactic year](https://en.wikipedia.org/wiki/Galactic_year).
 
 ## Tests

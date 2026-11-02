@@ -16,7 +16,10 @@ export const SYSTEM_SCALE = 0.11;
 export const SUN_RADIUS = SUN_DISPLAY_RADIUS * SYSTEM_SCALE;
 export const NEPTUNE_REAL_KM = 4.5e9;
 export const KM_PER_UNIT = (8178 * 3.0857e13) / GALACTIC_RADIUS;
+// NASA's Sun facts give 720,000 km/h (about 200 km/s); stellar-kinematics measurements are nearer 230–240 km/s.
 export const REAL_SUN_SPEED_KMS = 230;
+// NASA's Sun facts: about 230 million years per trip around the Milky Way.
+export const REAL_GALACTIC_YEAR_MILLIONS = 230;
 // NASA planetary fact sheet mean orbital speeds, km/s.
 export const REAL_ORBIT_SPEEDS = { Mercury: 47.4, Venus: 35, Earth: 29.8, Mars: 24.1, Jupiter: 13.1, Saturn: 9.7, Uranus: 6.8, Neptune: 5.4 };
 
@@ -122,6 +125,7 @@ export function isAhead(position, time) {
 export const SUN_SPEED = GALACTIC_RATE * GALACTIC_RADIUS;
 export const planetSpeed = (body) => body.orbit * body.omega;
 
+export const GALACTIC_ORBIT_SECONDS = TAU / GALACTIC_RATE;
 export const earthOrbits = (time) => time / SECONDS_PER_EARTH_YEAR;
 export const galacticOrbits = (time) => (GALACTIC_RATE * time) / TAU;
 /** How many times larger the drawn system is than the real one, at the galaxy's own scale. */

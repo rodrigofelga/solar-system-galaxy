@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { JOURNEY_SOURCES, JOURNEY_TEXT } from '../data/journey-text.js';
 import { JourneyScene, TRAIL_SPANS } from './journey-scene.js';
 import {
-  BODIES, MAGNIFICATION, REAL_ORBIT_SPEEDS, SECONDS_PER_EARTH_YEAR, earthOrbits, galacticOrbits, isAhead, pathLength, planetIndex,
+  BODIES, GALACTIC_ORBIT_SECONDS, MAGNIFICATION, REAL_GALACTIC_YEAR_MILLIONS, REAL_ORBIT_SPEEDS, SECONDS_PER_EARTH_YEAR, earthOrbits, galacticOrbits, isAhead, pathLength, planetIndex,
   planetOffset, planetPosition, sunPosition, vortexPosition,
 } from './journey-model.js';
 
@@ -195,7 +195,7 @@ export class JourneyControls {
       this.followNote,
       row('displayGroup', el('div', { class: 'journey-checks' }, this.toggles.trails.label, this.toggles.sunPath.label, this.toggles.planes.label, labelsLabel), trailField),
       this.readoutLine,
-      this.say(el('p', { class: 'note' }), 'readoutReal'),
+      this.buildTimescale(),
       this.scaleNote = el('p', { class: 'note' }),
       this.compareBox,
       this.selectedBox,
@@ -246,6 +246,16 @@ export class JourneyControls {
     this.vortexCount.hidden = true;
     const activityD = card('activityDTitle', 'activityDText', el('div', { class: 'journey-activity-actions' }, this.vortexButton), this.vortexExplain, this.vortexCount);
     return el('section', { class: 'journey-activities' }, this.say(el('h3'), 'activitiesTitle'), activityA, activityB, activityC, activityD);
+  }
+
+  buildTimescale() {
+    this.timeAnimValue = el('strong');
+    this.timeText = el('p', { class: 'note' });
+    const card = (labelKey, value) => el('div', { class: 'journey-clock' }, this.say(el('span'), labelKey), value, this.say(el('small'), 'timeOrbitNote'));
+    return el('div', { class: 'journey-timescale' },
+      this.say(el('h3'), 'timeTitle'),
+      el('div', { class: 'journey-clocks' }, card('timeRealLabel', this.say(el('strong'), 'timeRealValue')), card('timeAnimLabel', this.timeAnimValue)),
+      this.timeText);
   }
 
   buildScience() {
@@ -532,6 +542,9 @@ export class JourneyControls {
     this.trailOptions.forEach((option) => { option.textContent = t[{ short: 'trailShort', medium: 'trailMedium', long: 'trailLong' }[option.value]]; });
     this.labels.main.forEach((label, name) => { label.textContent = t.names[name]; });
     this.labels.second.forEach((label, name) => { label.textContent = t.names[name]; });
+    const number = (value, digits = 0) => value.toLocaleString(t.locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    this.timeAnimValue.textContent = t.timeAnimValue(number(GALACTIC_ORBIT_SECONDS));
+    this.timeText.textContent = t.timeText(number(REAL_GALACTIC_YEAR_MILLIONS / GALACTIC_ORBIT_SECONDS, 1), number(earthOrbits(GALACTIC_ORBIT_SECONDS), 1));
     this.realList.replaceChildren(...t.realItems.map((text) => el('li', { text })));
     this.displayList.replaceChildren(...t.displayItems.map((text) => el('li', { text })));
     this.renderCopy();
