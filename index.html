@@ -87,12 +87,14 @@
           <button type="button" data-galaxy-view="top">Top-down</button>
           <button type="button" data-galaxy-view="edge">Edge-on</button>
           <button type="button" data-galaxy-view="warp">View warp</button>
+          <button type="button" id="galaxy-journey" class="journey-entry">Solar System Galactic Journey</button>
           <button type="button" id="galaxy-tour" aria-pressed="false">Guided tour</button>
           <button type="button" id="galaxy-labels" aria-pressed="true">Hide labels</button>
           <button type="button" id="galaxy-halo" aria-pressed="false">Show dark halo</button>
           <button type="button" id="galaxy-fullscreen">Fullscreen</button>
           <label for="galaxy-feature">Explore anatomy <select id="galaxy-feature"><option value="">Select a structure</option></select></label>
         </div>
+        <section id="journey-panel" class="journey-panel" aria-labelledby="journey-title" hidden></section>
         <aside id="galaxy-info" class="galaxy-info" aria-live="polite" hidden>
           <button type="button" id="galaxy-panel-close" class="panel-close" aria-label="Close galactic information">×</button>
           <p id="galaxy-info-scale" class="eyebrow"></p>

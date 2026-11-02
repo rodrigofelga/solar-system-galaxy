@@ -264,3 +264,81 @@ output { min-width: 2.5em; color: #fff; font-variant-numeric: tabular-nums; }
 @media (max-width: 359px) {
   .body-details { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Solar System Galactic Journey */
+.journey-entry { border-color: #caa25f; background: #3a2c14; color: #ffe2ab; font-weight: 600; }
+.journey-entry:hover { background: #4a3a1c; }
+.journey-on .galaxy-controls, .journey-on .galaxy-status, .journey-on .galaxy-info { display: none; }
+.journey-active .galaxy-badge, .journey-active > .galaxy-label { display: none; }
+.journey-pane { position: absolute; z-index: 1; touch-action: none; cursor: grab; }
+.journey-pane:active { cursor: grabbing; }
+.journey-pane[hidden], .journey-caption[hidden], .journey-badge[hidden], .journey-labels[hidden], .journey-choices[hidden], .journey-selected[hidden], .journey-answer[hidden], .journey-follow-note[hidden], .journey-explain[hidden] { display: none; }
+.journey-pane + .journey-pane { box-shadow: 0 0 0 1px rgba(143, 176, 216, .45); }
+.journey-labels, .journey-choices { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.journey-label { z-index: auto; min-height: 24px; padding: 2px 7px; font-size: 11px; pointer-events: auto; }
+.journey-label::before { display: none; }
+.journey-tag { position: absolute; transform: translate(-50%, -50%); padding: 1px 6px; border-radius: 6px; background: rgba(5, 13, 27, .7); color: #a9e7ff; font-size: 10px; white-space: nowrap; }
+.journey-tag[hidden] { display: none; }
+.journey-tag--tilt { color: #ffe9b8; }
+.journey-caption { position: absolute; z-index: 2; max-width: calc(100% - 16px); padding: 3px 8px; border: 1px solid #4b6a91; border-radius: 7px; background: rgba(5, 12, 26, .86); color: #e3f0ff; font-size: 12px; font-weight: 600; pointer-events: none; }
+.journey-caption--wrong { border-color: #ff8f7a; background: rgba(66, 14, 8, .92); color: #ffc9bd; }
+.journey-badge { position: absolute; top: 8px; right: 8px; z-index: 2; max-width: min(44%, 340px); margin: 0; padding: 4px 8px; border-radius: 7px; background: rgba(5, 12, 26, .72); color: #ffd3a1; font-size: 11px; line-height: 1.4; text-align: right; pointer-events: none; }
+.journey-active .journey-dock { z-index: 3; }
+.journey-dock[hidden] { display: none; }
+.journey-choice { position: absolute; width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #ffe9b8; border-radius: 50%; background: rgba(58, 44, 20, .92); color: #fff; font-weight: 700; pointer-events: auto; }
+.journey-choice.is-picked { border-color: #8cc9ff; background: #1f4d7a; }
+.journey-choice.is-right { border-color: #8bf0b0; background: #17583a; }
+.journey-choice[hidden] { display: none; }
+.journey-panel { margin-top: 12px; padding: clamp(14px, 3vw, 22px); border: 1px solid #35577d; border-radius: 13px; background: linear-gradient(135deg, #0f2440, #080f20 72%); }
+.journey-panel[hidden] { display: none; }
+.journey-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.journey-header h2 { margin: 0; font-size: clamp(20px, 3vw, 26px); }
+.journey-header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.journey-header-actions button { min-height: 38px; font-size: 12px; }
+.journey-exit { border-color: #caa25f; }
+.journey-intro { margin: 8px 0 6px; line-height: 1.5; }
+.journey-status { margin: 0 0 12px; font-size: 13px; color: #cfe2f6; }
+.journey-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+.journey-row-label { flex: 0 0 110px; color: #9fc4ed; font-size: 12px; font-weight: 700; }
+.journey-segment { display: flex; flex-wrap: wrap; gap: 4px; }
+.journey-segment button { min-height: 38px; padding: 6px 11px; font-size: 12px; }
+.journey-segment button[aria-pressed="true"] { border-color: #8cc9ff; background: #2f6fb0; font-weight: 700; }
+.journey-segment button:disabled { opacity: .45; cursor: not-allowed; }
+.journey-field { min-height: 38px; font-size: 12px; }
+.journey-checks { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.journey-checks label { min-height: 34px; font-size: 12px; }
+.journey-follow-note { margin: -4px 0 10px 122px; }
+.journey-readout { margin: 12px 0 2px; color: #ffe2ab; font-size: 13px; font-variant-numeric: tabular-nums; }
+.journey-explain, .journey-selected { margin: 12px 0; padding: 12px 14px; border: 1px solid #31507a; border-radius: 9px; background: rgba(8, 15, 32, .8); }
+.journey-explain h3 { margin: 0 0 6px; font-size: 14px; }
+.journey-explain p, .journey-selected p { margin: 0; max-width: 78ch; font-size: 13px; line-height: 1.55; color: #cfe2f6; }
+.journey-selected .eyebrow { margin-bottom: 2px; font-size: 11px; color: #9fc4ed; }
+.journey-activities { margin-top: 14px; }
+.journey-activities > h3 { margin: 0 0 8px; font-size: 15px; }
+.journey-activity, .journey-science { margin-bottom: 8px; padding: 10px 12px; border: 1px solid #2d4668; border-radius: 9px; background: rgba(8, 15, 32, .6); }
+.journey-activity summary, .journey-science summary { cursor: pointer; font-size: 13px; font-weight: 700; color: #e3f0ff; }
+.journey-activity p { max-width: 78ch; margin: 8px 0; font-size: 13px; line-height: 1.5; color: #cfe2f6; }
+.journey-activity-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.journey-activity-actions button { min-height: 38px; font-size: 12px; }
+.journey-activity-actions button[hidden] { display: none; }
+.journey-activity-actions button[aria-pressed="true"] { border-color: #ff8f7a; }
+.journey-answer { color: #ffe9b8 !important; }
+.journey-science { margin-top: 14px; }
+.journey-science-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 10px; }
+.journey-science h4 { margin: 0 0 6px; font-size: 13px; color: #9fc4ed; }
+.journey-science ul { margin: 0; padding-left: 16px; color: #cfe2f6; font-size: 12px; line-height: 1.5; }
+.journey-science li + li { margin-top: 5px; }
+.journey-science a { color: #a3d7ff; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.galaxy-panel:fullscreen #journey-panel { max-width: 1100px; margin-inline: auto; }
+@media (max-width: 899px) { .journey-science-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 620px) {
+  #galaxy.journey-active { height: clamp(460px, 125vw, 600px); }
+  .journey-row-label { flex-basis: 100%; }
+  .journey-follow-note { margin-left: 0; }
+  .journey-segment { width: 100%; }
+  .journey-segment button { flex: 1 1 calc(50% - 4px); }
+  .journey-badge { display: none; }
+  .journey-label { min-height: 26px; font-size: 10px; }
+  .journey-header-actions { width: 100%; }
+  .journey-header-actions button { flex: 1 1 auto; }
+}

@@ -20,6 +20,7 @@ export class GalaxyView {
     this.tourTime = null;
     this.seed = 721;
     this.available = false;
+    this.journey = null;
     this.status = document.querySelector('#galaxy-status');
     this.bindUI();
     try {
@@ -330,6 +331,8 @@ export class GalaxyView {
 
   update(delta, speed, isPlaying) {
     if (!this.available) return;
+    // The journey runs its own clock and draws this same scene from its own cameras.
+    if (this.journey?.active) { this.blackHole.update(delta, this.journey.scene.views.main.camera, this.container.clientHeight * this.renderer.getPixelRatio()); this.journey.update(delta); return; }
     if (isPlaying) this.phase += delta * speed * 0.105;
     this.updateSun();
     this.orbit.visible = this.showOrbit && !this.blackHole.closeup;
@@ -401,5 +404,6 @@ export class GalaxyView {
     }
     this.renderer.setSize(width, height, false);
     this.clouds?.forEach((cloud) => { cloud.material.uniforms.uPixels.value = height * this.renderer.getPixelRatio(); });
+    this.journey?.resize();
   }
 }

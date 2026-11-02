@@ -26,6 +26,7 @@ const uiPairs = {
   'Milky Way — galactic explorer': 'Via Láctea — explorador galáctico',
   'Interactive 3D anatomy': 'Anatomia interativa em 3D',
   'Interactive 3D Solar System': 'Sistema Solar interativo em 3D',
+  'Solar System Galactic Journey': 'A Jornada do Sistema Solar pela Galáxia',
   'Galaxy overview': 'Visão geral da galáxia',
   'Explore black hole': 'Explorar buraco negro',
   'Top-down': 'Vista superior',
@@ -181,6 +182,7 @@ function setLanguage(language) {
 
   refreshLanguage();
   renderCrewSection(currentLanguage);
+  journey?.setLanguage(currentLanguage);
 
   if (state.selectedName) {
     renderPanel(state.selectedName);
@@ -241,6 +243,28 @@ const state = {
 };
 
 const galaxy = new GalaxyView(elements.galaxy);
+
+let journey = null;
+const journeyButton = document.querySelector('#galaxy-journey');
+
+// Loaded on first use, so the page costs nothing extra for anyone who never opens the journey.
+journeyButton.addEventListener('click', async () => {
+  journeyButton.disabled = true;
+  try {
+    if (!journey) {
+      const { JourneyControls } = await import('./journey/journey-controls.js');
+      journey = new JourneyControls(galaxy, currentLanguage);
+    }
+    await journey.open();
+  } catch (error) {
+    console.error('The Solar System Galactic Journey could not start.', error);
+    document.querySelector('#galaxy-status').textContent = currentLanguage === 'pt-BR'
+      ? 'Não foi possível iniciar a jornada. Recarregue a página e tente novamente.'
+      : 'The journey could not start. Reload the page and try again.';
+  } finally {
+    journeyButton.disabled = false;
+  }
+});
 
 const solarSystem = new SolarSystemView(
   elements.solarHost,

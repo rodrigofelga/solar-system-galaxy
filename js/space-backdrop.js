@@ -88,14 +88,15 @@ const clouds = (x, y, z) => valueNoise(0.8 * x + 0.6 * y, -0.48 * x + 0.64 * y +
 
 /** Deep-space surroundings: a dim painted sky, layered stars and a faint glow along the planets' plane. */
 export class SpaceBackdrop {
-  constructor({ compact = false, pixelRatio = 1 } = {}) {
+  constructor({ compact = false, pixelRatio = 1, bandNormal = BAND_NORMAL, eclipticGlow = true } = {}) {
+    this.bandNormal = bandNormal;
     this.group = new THREE.Group();
     this.group.name = 'SpaceBackdrop';
     this.layers = [];
     this.createSky(compact);
     const random = seededRandom(20260401);
     STAR_LAYERS.forEach((layer) => this.createStars(layer, compact, pixelRatio, random));
-    this.createEclipticGlow();
+    if (eclipticGlow) this.createEclipticGlow();
   }
 
   // Colours live on the vertices, so the glow costs no per-pixel noise. Dithering hides banding in the dark gradients.
@@ -108,7 +109,7 @@ export class SpaceBackdrop {
     for (let index = 0; index < position.count; index += 1) {
       direction.fromBufferAttribute(position, index).normalize();
       const { x, y, z } = direction;
-      const latitude = direction.dot(BAND_NORMAL);
+      const latitude = direction.dot(this.bandNormal);
       const texture = clouds(x * 2.6 + 3, y * 2.6, z * 2.6 + 1);
       const band = Math.exp(-((latitude / 0.3) ** 2)) * THREE.MathUtils.smoothstep(texture, 0.28, 0.72);
       const warm = THREE.MathUtils.smoothstep(clouds(x * 1.7 + 11, y * 1.7 + 4, z * 1.7), 0.56, 0.78);
@@ -139,7 +140,7 @@ export class SpaceBackdrop {
       direction.set(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1);
       while (direction.lengthSq() > 1 || direction.lengthSq() < 1e-4) direction.set(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1);
       direction.normalize();
-      if (random() < bandBias) direction.addScaledVector(BAND_NORMAL, -direction.dot(BAND_NORMAL) * (0.72 + random() * 0.28)).normalize();
+      if (random() < bandBias) direction.addScaledVector(this.bandNormal, -direction.dot(this.bandNormal) * (0.72 + random() * 0.28)).normalize();
       direction.toArray(positions, index * 3);
       positions[index * 3] *= radius; positions[index * 3 + 1] *= radius; positions[index * 3 + 2] *= radius;
       // Squaring skews the population toward faint stars, as in the real sky.

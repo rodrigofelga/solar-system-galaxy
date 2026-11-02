@@ -39,6 +39,7 @@ The Solar System & Milky Way Explorer aims to demonstrate these interconnected m
 - Play, Pause, speed presets (0.1×, 1×, 10×, 100×), a speed slider, Reset speed, and Fullscreen, all inside the 3D Solar System view.
 - Reset camera control.
 - Artemis II replay with a smooth Earth–Moon rotating-frame route and bilingual crew profiles.
+- Solar System Galactic Journey: the Sun, planets and their combined paths in Sun-centred, galactic and side-by-side views, with activities and a comparison against the misleading vortex picture. See [GALACTIC_JOURNEY.md](GALACTIC_JOURNEY.md).
 
 ### Solar System Visualization
 
