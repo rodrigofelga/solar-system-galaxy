@@ -2,16 +2,22 @@ import * as THREE from 'three';
 
 // All of these stay inside the camera's far plane, including at maximum zoom-out.
 const SKY_RADIUS = 245;
-const BAND_NORMAL = new THREE.Vector3(0.38, 0.86, -0.34).normalize();
+// Runs the Milky Way diagonally behind the default overview, clear of the Sun.
+const BAND_NORMAL = new THREE.Vector3(-0.528, 0.817, -0.034).normalize();
+// Toward the upper right of the default overview; moved onto the band in the constructor, so a custom band keeps its bulge.
+const BULGE_DIRECTION = new THREE.Vector3(0.007, -0.037, -0.999);
 const STAR_TINTS = [
-  [0.72, 0.8, 1], [0.84, 0.89, 1], [0.84, 0.89, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1],
-  [1, 0.95, 0.84], [1, 0.95, 0.84], [1, 0.84, 0.66], [1, 0.72, 0.52],
+  [0.62, 0.74, 1], [0.72, 0.8, 1], [0.84, 0.89, 1], [0.84, 0.89, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1],
+  [1, 0.95, 0.84], [1, 0.95, 0.84], [1, 0.84, 0.66], [1, 0.72, 0.52], [1, 0.6, 0.42],
 ];
 // follow is how far a layer moves with the camera: below 1 it drifts slightly, which reads as depth.
+// compactShare is the part of a layer kept on phones, where the faint layers cost the most for the least.
 const STAR_LAYERS = [
-  { count: 5600, radius: 240, follow: 1, size: [1.5, 2.2], brightness: [0.16, 0.5], bandBias: 0.5 },
-  { count: 1500, radius: 225, follow: 0.96, size: [1.8, 2.8], brightness: [0.42, 0.85], bandBias: 0.25 },
-  { count: 110, radius: 210, follow: 0.92, size: [4.5, 8], brightness: [0.8, 1], bandBias: 0 },
+  // Unresolved star clouds, thinned by the same noise as the painted sky so that dark lanes show through.
+  { count: 14000, radius: 242, follow: 1, size: [1.1, 1.8], brightness: [0.16, 0.46], bandBias: 1, lanes: true, compactShare: 0.12 },
+  { count: 8000, radius: 240, follow: 1, size: [1.3, 2.1], brightness: [0.14, 0.48], bandBias: 0.35, compactShare: 0.2 },
+  { count: 2400, radius: 225, follow: 0.9, size: [1.8, 3], brightness: [0.42, 0.95], bandBias: 0.2, compactShare: 0.55 },
+  { count: 190, radius: 210, follow: 0.8, size: [4.5, 9.5], brightness: [0.8, 1.15], bandBias: 0, compactShare: 0.55 },
 ];
 
 const STAR_VERTEX = /* glsl */ `
@@ -53,7 +59,7 @@ varying float vFacing;
 void main(){
   float r = clamp(length(vPlane) / uRadius, 0.0, 1.0);
   // Fades when seen edge-on, where a flat disc would otherwise cut a straight horizon across the sky.
-  float glow = pow(1.0 - r, 2.6) * 0.09 * smoothstep(0.03, 0.4, vFacing);
+  float glow = pow(1.0 - r, 2.4) * 0.12 * smoothstep(0.03, 0.4, vFacing);
   gl_FragColor = vec4(vec3(1.0, 0.68, 0.42) * glow, 1.0);
 }
 `;
@@ -90,6 +96,7 @@ const clouds = (x, y, z) => valueNoise(0.8 * x + 0.6 * y, -0.48 * x + 0.64 * y +
 export class SpaceBackdrop {
   constructor({ compact = false, pixelRatio = 1, bandNormal = BAND_NORMAL, eclipticGlow = true } = {}) {
     this.bandNormal = bandNormal;
+    this.bulgeDirection = BULGE_DIRECTION.clone().addScaledVector(bandNormal, -BULGE_DIRECTION.dot(bandNormal)).normalize();
     this.group = new THREE.Group();
     this.group.name = 'SpaceBackdrop';
     this.layers = [];
@@ -101,7 +108,7 @@ export class SpaceBackdrop {
 
   // Colours live on the vertices, so the glow costs no per-pixel noise. Dithering hides banding in the dark gradients.
   createSky(compact) {
-    const geometry = new THREE.IcosahedronGeometry(SKY_RADIUS, compact ? 14 : 24);
+    const geometry = new THREE.IcosahedronGeometry(SKY_RADIUS, compact ? 18 : 32);
     const { position } = geometry.attributes;
     const colors = new Float32Array(position.count * 3);
     const direction = new THREE.Vector3();
@@ -112,12 +119,15 @@ export class SpaceBackdrop {
       const latitude = direction.dot(this.bandNormal);
       const texture = clouds(x * 2.6 + 3, y * 2.6, z * 2.6 + 1);
       const band = Math.exp(-((latitude / 0.3) ** 2)) * THREE.MathUtils.smoothstep(texture, 0.28, 0.72);
+      const bulgeAngle = Math.acos(THREE.MathUtils.clamp(direction.dot(this.bulgeDirection), -1, 1));
+      const bulge = Math.exp(-((bulgeAngle / 0.38) ** 2)) * Math.exp(-((latitude / 0.2) ** 2)) * (0.45 + 0.55 * texture);
+      const violet = Math.exp(-((latitude / 0.5) ** 2)) * THREE.MathUtils.smoothstep(clouds(x * 2.2 - 3, y * 2.2 + 8, z * 2.2), 0.42, 0.72);
       const warm = THREE.MathUtils.smoothstep(clouds(x * 1.7 + 11, y * 1.7 + 4, z * 1.7), 0.56, 0.78);
       const teal = THREE.MathUtils.smoothstep(clouds(x * 1.9 - 7, y * 1.9, z * 1.9 + 13), 0.58, 0.8);
       color.setRGB(
-        0.008 + 0.075 * band + 0.05 * warm + 0.004 * teal,
-        0.016 + 0.082 * band + 0.018 * warm + 0.03 * teal,
-        0.047 + 0.135 * band + 0.038 * warm + 0.042 * teal,
+        0.008 + 0.14 * band + 0.05 * warm + 0.004 * teal + 0.03 * violet + 0.3 * bulge,
+        0.016 + 0.15 * band + 0.018 * warm + 0.03 * teal + 0.008 * violet + 0.2 * bulge,
+        0.047 + 0.235 * band + 0.038 * warm + 0.042 * teal + 0.055 * violet + 0.11 * bulge,
         THREE.SRGBColorSpace,
       );
       colors.set([color.r, color.g, color.b], index * 3);
@@ -130,8 +140,8 @@ export class SpaceBackdrop {
   }
 
   // Everything here is left out of the transparent pass: it must draw first, so that every body covers it.
-  createStars({ count, radius, follow, size, brightness, bandBias }, compact, pixelRatio, random) {
-    const total = compact ? Math.ceil(count * 0.55) : count;
+  createStars({ count, radius, follow, size, brightness, bandBias, lanes = false, compactShare }, compact, pixelRatio, random) {
+    const total = compact ? Math.ceil(count * compactShare) : count;
     const positions = new Float32Array(total * 3);
     const sizes = new Float32Array(total);
     const colors = new Float32Array(total * 3);
@@ -141,6 +151,8 @@ export class SpaceBackdrop {
       while (direction.lengthSq() > 1 || direction.lengthSq() < 1e-4) direction.set(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1);
       direction.normalize();
       if (random() < bandBias) direction.addScaledVector(this.bandNormal, -direction.dot(this.bandNormal) * (0.72 + random() * 0.28)).normalize();
+      // A thinned star keeps its slot, but it has no size or colour, so it draws nothing.
+      if (lanes && random() > THREE.MathUtils.smoothstep(clouds(direction.x * 2.6 + 3, direction.y * 2.6, direction.z * 2.6 + 1), 0.3, 0.62)) continue;
       direction.toArray(positions, index * 3);
       positions[index * 3] *= radius; positions[index * 3 + 1] *= radius; positions[index * 3 + 2] *= radius;
       // Squaring skews the population toward faint stars, as in the real sky.
@@ -168,7 +180,7 @@ export class SpaceBackdrop {
   }
 
   createEclipticGlow() {
-    const radius = 50;
+    const radius = 62;
     const glow = new THREE.Mesh(new THREE.CircleGeometry(radius, 96), new THREE.ShaderMaterial({
       uniforms: { uRadius: { value: radius } },
       vertexShader: ECLIPTIC_VERTEX,

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { SURFACE_VERTEX, SURFACE_FRAGMENT, CORONA_VERTEX, CORONA_FRAGMENT, HALO_FRAGMENT, PROMINENCE_VERTEX, PROMINENCE_FRAGMENT } from './solar-shaders.js';
 
-const CORONA_SPAN = 3.1; // half-width of the corona billboard in solar radii
-const HALO_SPAN = 9; // half-width of the outer light billboard in solar radii
+const CORONA_SPAN = 3.5; // half-width of the corona billboard in solar radii
+const HALO_SPAN = 13; // half-width of the outer light billboard in solar radii
 const QUALITY_PRESETS = [
   { name: 'low', octaves: 3, warp: false, fine: false, loops: 2, streamers: 0 },
   { name: 'medium', octaves: 4, warp: true, fine: false, loops: 4, streamers: 1 },

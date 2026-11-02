@@ -22,7 +22,7 @@ const view={scene,camera,controls,available:true,renderer:{render(){}},showOrbit
  ['Earth',{name:'Earth',root:earthRoot,mesh:earthMesh,orbitPivot:earthOrbit,rotationPeriod:.997,orbitPeriod:1,radius:.9}],
  ['Moon',{name:'Moon',root:moonRoot,mesh:moonMesh,isMoon:true,moonOrbit,orbit:moonPath,radius:.28}]
 ])};
-view.updateCamera=SolarSystemView.prototype.updateCamera;view.focusBody=SolarSystemView.prototype.focusBody;
+view.updateCamera=SolarSystemView.prototype.updateCamera;view.updateDisplayScale=SolarSystemView.prototype.updateDisplayScale;view.focusBody=SolarSystemView.prototype.focusBody;
 const mission=new ArtemisMission(view,data);view.artemis=mission;
 const step=(dt=1/60,speed=1,playing=true)=>SolarSystemView.prototype.update.call(view,dt,speed,playing);
 const state=()=>[earthOrbit.rotation.y,earthMesh.rotation.y,moonOrbit.rotation.y,moonMesh.rotation.y,...moonRoot.position.toArray()];

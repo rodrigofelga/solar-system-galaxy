@@ -5,6 +5,11 @@ const SIZE_COMPRESSION = 0.55;
 const displayRadius = (radiusKm) => EARTH_DISPLAY_RADIUS * (radiusKm / EARTH_RADIUS_KM) ** SIZE_COMPRESSION;
 
 export const SUN_DISPLAY_RADIUS = 5.2;
+// Extra size in the wide view only, fading to 1 as the camera nears a body, so close-ups and the Artemis II mapping keep the radii above.
+// Rocky planets get more because they are only a few pixels wide; it is shared across each group, so the size order is kept.
+export const SUN_OVERVIEW_BOOST = 1.08;
+const ROCKY_OVERVIEW_BOOST = 1.3;
+const GIANT_OVERVIEW_BOOST = 1.1;
 
 // Deliberately compressed display values keep all worlds explorable in one scene.
 // Radii follow one rule, so every size comparison keeps its order: true ratio to Earth, raised to SIZE_COMPRESSION.
@@ -22,4 +27,9 @@ export const PLANETS = [
   { name: 'Saturn', color: 0xe0cb99, radiusKm: 58232, orbitRadius: 47, orbitPeriod: 29.457, rotationPeriod: 0.444, axialTilt: 26.73, initialAngle: 0.28, hasRings: true, albedoGain: 1.17, roughness: 1, textureHigh: 'assets/textures/saturn-high.jpg' },
   { name: 'Uranus', color: 0x89d8df, radiusKm: 25362, orbitRadius: 58, orbitPeriod: 84.017, rotationPeriod: -0.718, axialTilt: 97.77, initialAngle: 3.5, albedoGain: 1.4, roughness: 1 },
   { name: 'Neptune', color: 0x527fdb, radiusKm: 24622, orbitRadius: 68, orbitPeriod: 164.79, rotationPeriod: 0.671, axialTilt: 28.32, initialAngle: 1.45, albedoGain: 2.31, roughness: 1 },
-].map((planet) => ({ ...planet, radius: displayRadius(planet.radiusKm), axialTilt: planet.axialTilt * DEG_TO_RAD }));
+].map((planet) => ({
+  ...planet,
+  radius: displayRadius(planet.radiusKm),
+  axialTilt: planet.axialTilt * DEG_TO_RAD,
+  overviewBoost: planet.radiusKm < EARTH_RADIUS_KM * 2 ? ROCKY_OVERVIEW_BOOST : GIANT_OVERVIEW_BOOST,
+}));

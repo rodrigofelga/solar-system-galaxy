@@ -168,7 +168,7 @@ void main(){
   }
   float limb = smoothstep(1.0, 1.04, d) * (1.0 - smoothstep(1.04, 1.5, d)) * 0.55;
   float a = (fall * (0.55 + 0.6 * n) * streak + limb * fall * 2.0) * edge;
-  a = clamp(a * 0.65, 0.0, 1.0);
+  a = clamp(a * 0.8, 0.0, 1.0);
   vec3 inner = vec3(1.0, 0.72, 0.28);
   vec3 outer = vec3(0.95, 0.32, 0.05);
   vec3 col = mix(outer, inner, smoothstep(2.4, 1.0, d));
@@ -181,10 +181,14 @@ export const HALO_FRAGMENT = /* glsl */ `
 uniform float uSpan;
 varying vec2 vUv;
 void main(){
-  float d = max(length(vUv - 0.5) * 2.0 * uSpan, 1.0);
-  float edge = 1.0 - smoothstep(uSpan * 0.4, uSpan, d);
-  float tight = pow(1.0 / d, 5.0) * 0.2;
-  float wide = pow(1.0 / d, 1.6) * 0.085;
+  vec2 c = (vUv - 0.5) * 2.0 * uSpan;
+  float d = max(length(c), 1.0);
+  float ang = atan(c.y, c.x);
+  float edge = 1.0 - smoothstep(uSpan * 0.35, uSpan, d);
+  // Fixed, cheap rays rather than noise: this quad covers much of the screen.
+  float rays = 0.84 + 0.16 * sin(ang * 7.0 + 1.3 * sin(ang * 3.0)) * sin(ang * 13.0 + 0.7);
+  float tight = pow(1.0 / d, 4.2) * 0.3;
+  float wide = pow(1.0 / d, 1.4) * 0.11 * rays;
   vec3 col = vec3(1.0, 0.62, 0.3) * wide + vec3(1.0, 0.8, 0.52) * tight;
   gl_FragColor = vec4(col * edge, 1.0);
 }

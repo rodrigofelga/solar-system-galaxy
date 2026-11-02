@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { PLANETS, SUN_DISPLAY_RADIUS } from './data/planets.js';
+import { PLANETS, SUN_DISPLAY_RADIUS, SUN_OVERVIEW_BOOST } from './data/planets.js';
 import { BODY_ORDER, CELESTIAL_BODIES } from './data/celestial-bodies.js';
 import { SolarSun } from './sun/solar-sun.js';
 import { SolarInteraction } from './sun/solar-interaction.js';
@@ -17,7 +17,10 @@ const WHITE = new THREE.Color(0xffffff);
 // Sunlight strikes the rings at a shallow angle, so they need more gain than the planet to read as bright as they do.
 const RING_ALBEDO_BOOST = 3;
 const RING_TINT = new THREE.Color(0xf6e7c8);
-const OVERVIEW_CAMERA = new THREE.Vector3(0, 40, 104);
+const OVERVIEW_CAMERA = new THREE.Vector3(31.5, 34, 86.5);
+const OVERVIEW_BOOST_NEAR = 32;
+const OVERVIEW_BOOST_FAR = 80;
+const OVERVIEW_BOOST_RATE = 6;
 // Narrow screens start further back, within the zoom limit, so they still show the outer planets' orbits.
 const NARROW_OVERVIEW_ASPECT = 1.7;
 const MAX_OVERVIEW_PULLBACK = 1.25;
@@ -45,7 +48,7 @@ varying float vAngle;
 varying float vNear;
 void main(){
   float trail = exp(-mod(vAngle + uPlanetAngle, 6.2831853) * 2.1);
-  float alpha = (0.17 + 0.2 * uSelected) * (0.62 + 0.38 * vNear) + trail * 0.62;
+  float alpha = (0.27 + 0.2 * uSelected) * (0.62 + 0.38 * vNear) + trail * 0.62;
   gl_FragColor = vec4(mix(uColor, uTrailColor, trail), alpha);
 }
 `;
@@ -175,7 +178,7 @@ export class SolarSystemView {
     const forcedQuality = { low: 0, medium: 1, high: 2 }[requested] ?? null;
     this.sun = new SolarSun(SUN_DISPLAY_RADIUS, { compact, forcedQuality });
     this.scene.add(this.sun.group);
-    this.registerBody('Sun', { mesh: this.sun.mesh, root: this.sun.group, rotationPeriod: 25.38, radius: SUN_DISPLAY_RADIUS, orbitPivot: null });
+    this.registerBody('Sun', { mesh: this.sun.mesh, root: this.sun.group, rotationPeriod: 25.38, radius: SUN_DISPLAY_RADIUS, orbitPivot: null, overviewBoost: SUN_OVERVIEW_BOOST });
     this.solarInteraction = new SolarInteraction({ sun: this.sun, camera: this.camera, domElement: this.renderer.domElement, container: this.container });
   }
 
@@ -203,7 +206,7 @@ export class SolarSystemView {
     if (data.hasRings) this.addSaturnRings(axialPivot, data.radius, data.albedoGain);
     const orbit = this.createPlanetOrbit(data);
     this.scene.add(orbit);
-    this.registerBody(data.name, { mesh, root: axialPivot, rotationPeriod: data.rotationPeriod, orbitPeriod: data.orbitPeriod, radius: data.radius, orbitPivot, orbit, orbitUniforms: orbit.material.uniforms, albedoGain: data.albedoGain, textureHigh: data.textureHigh });
+    this.registerBody(data.name, { mesh, root: axialPivot, rotationPeriod: data.rotationPeriod, orbitPeriod: data.orbitPeriod, radius: data.radius, orbitPivot, orbit, orbitUniforms: orbit.material.uniforms, albedoGain: data.albedoGain, textureHigh: data.textureHigh, overviewBoost: data.overviewBoost });
     if (data.albedoGain) this.loadPlanetTexture(data.name);
     else this.loadTexture(data.name, material);
   }
@@ -255,6 +258,7 @@ export class SolarSystemView {
 
   registerBody(name, body) {
     body.name = name;
+    body.displayScale = 1;
     body.mesh.userData.bodyName = name;
     this.bodies.set(name, body);
     this.pickableMeshes.push(body.mesh);
@@ -429,7 +433,7 @@ export class SolarSystemView {
       if (body.isMoon) return;
       body.mesh.getWorldPosition(position);
       const distance = position.distanceTo(this.camera.position);
-      const radiusPx = body.radius / (distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) * rect.height / 2;
+      const radiusPx = body.radius * body.displayScale / (distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) * rect.height / 2;
       position.project(this.camera);
       if (position.z > 1) return;
       const x = rect.left + (position.x + 1) / 2 * rect.width;
@@ -561,6 +565,20 @@ export class SolarSystemView {
     }
   }
 
+  // Bodies swell gently as the camera pulls back. The mission's route is mapped onto Earth and the Moon at their true display sizes.
+  updateDisplayScale(delta) {
+    const missionActive = Boolean(this.artemis?.active);
+    const alpha = 1 - Math.exp(-OVERVIEW_BOOST_RATE * Math.min(delta, 0.1));
+    const position = new THREE.Vector3();
+    this.bodies.forEach((body) => {
+      if (!body.overviewBoost) return;
+      const wide = missionActive ? 0 : THREE.MathUtils.smoothstep(body.root.getWorldPosition(position).distanceTo(this.camera.position), OVERVIEW_BOOST_NEAR, OVERVIEW_BOOST_FAR);
+      body.displayScale += (1 + (body.overviewBoost - 1) * wide - body.displayScale) * alpha;
+      if (missionActive && body.name === 'Earth') body.displayScale = 1;
+      body.root.scale.setScalar(body.displayScale);
+    });
+  }
+
   update(delta, speed, isPlaying) {
     if (!this.available) return;
     if (isPlaying) {
@@ -578,6 +596,7 @@ export class SolarSystemView {
       }
     }
     this.bodies.forEach((body) => { if (body.orbitUniforms) body.orbitUniforms.uPlanetAngle.value = body.orbitPivot.rotation.y % TAU; });
+    this.updateDisplayScale(delta);
     this.sun?.update(delta, isPlaying ? delta * Math.min(speed, SUN_MAX_ANIMATION_SPEED) : 0, this.camera);
     if (this.artemis?.active) this.artemis.update(delta, speed, isPlaying);
     if (!this.artemis?.active || !this.artemis.cameraMode) this.updateCamera(delta);
@@ -601,6 +620,10 @@ export class SolarSystemView {
       if (!this.artemis) this.artemis = new module.ArtemisMission(this, data);
     }
     if (!this.artemisRequested) return null;
+    // The mission reads the Moon's distance as it starts, so Earth must already be at its true size.
+    const earth = this.bodies.get('Earth');
+    earth.displayScale = 1;
+    earth.root.scale.setScalar(1);
     this.artemis.enable(); return this.artemis;
   }
 
