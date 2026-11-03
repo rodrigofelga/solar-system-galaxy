@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Galactic Journey visibility checks</title>
+<style>body{background:#071223;color:#dbeaff;font:16px system-ui;padding:24px}li{margin:12px 0}.fail{color:#ff8b80}.pass{color:#8de5b3}iframe{width:1100px;height:760px;border:0}</style>
+<h1>Galactic Journey visibility checks</h1><p id="summary" role="status">Running…</p><ol id="results"></ol>
+<iframe id="app" title="The site under test"></iframe>
+<script type="module">
+// Runs the real site in a frame, and hands the Journey's own observer the batches a browser can deliver.
+// A browser queues every change since its last delivery, oldest first, so only the last entry is current.
+const assert=(v,m)=>{if(!v)throw Error(m)};
+const wait=(ms)=>new Promise((done)=>setTimeout(done,ms));
+const until=async(test,what)=>{for(let i=0;i<300;i++){if(test())return;await wait(50);}throw Error('timed out: '+what);};
+const PRELUDE=`<base href="../"><script>
+window.__observers=[];window.__draws=0;
+const Real=window.IntersectionObserver;
+window.IntersectionObserver=class extends Real{constructor(callback,options){super(callback,options);this.callback=callback;window.__observers.push(this);}};
+for(const name of ['drawArrays','drawElements','drawArraysInstanced','drawElementsInstanced']){const real=WebGL2RenderingContext.prototype[name];WebGL2RenderingContext.prototype[name]=function(...args){if(this.canvas.closest('#galaxy'))window.__draws+=1;return real.apply(this,args);};}
+<\/script>`;
+const frame=document.querySelector('#app');
+const html=await(await fetch('../index.html')).text();
+const page=frame.contentWindow;
+page.document.open();page.document.write(html.replace('<head>','<head>'+PRELUDE));page.document.close();
+const drawsDuring=async(ms)=>{const before=page.__draws;await wait(ms);return page.__draws-before;};
+let passed=0,failed=0;
+async function check(name,run){const li=document.createElement('li');try{await run();li.textContent='PASS · '+name;li.className='pass';passed++;}catch(error){li.textContent='FAIL · '+name+' — '+error.message;li.className='fail';failed++;}document.querySelector('#results').append(li);}
+let journey;
+const deliver=(...states)=>journey.callback(states.map((isIntersecting)=>({isIntersecting})),journey);
+await check('the Journey opens and draws',async()=>{
+  await until(()=>page.document.querySelector('#galaxy-journey')&&!page.document.querySelector('#galaxy-journey').disabled&&page.document.querySelector('#galaxy canvas'),'the galaxy view');
+  page.document.querySelector('#galaxy-panel').scrollIntoView();
+  await wait(500);
+  const count=page.__observers.length;
+  page.document.querySelector('#galaxy-journey').click();
+  await until(()=>page.__observers.length>count,'the Journey to watch its viewport');
+  journey=page.__observers.at(-1);
+  assert(await drawsDuring(600)>0,'nothing was drawn');
+});
+await check('a batch ending on screen keeps drawing, whatever came first',async()=>{
+  deliver(false,true);await wait(150);
+  assert(await drawsDuring(600)>0,'the Journey froze: off screen, then on screen, read as off screen');
+});
+await check('a batch ending off screen stops drawing, whatever came first',async()=>{
+  deliver(true,false);await wait(150);
+  assert(await drawsDuring(600)===0,'still drawing while off screen');
+});
+await check('returning on screen resumes drawing',async()=>{
+  deliver(true);await wait(150);
+  assert(await drawsDuring(600)>0,'did not resume');
+});
+document.querySelector('#summary').textContent=`${passed} passed · ${failed} failed`;
+</script></html>

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { JOURNEY_SOURCES, JOURNEY_TEXT } from '../data/journey-text.js';
+import { watchOnScreen } from '../on-screen.js';
 import { JourneyScene, TRAIL_SPANS } from './journey-scene.js';
 import {
   BODIES, GALACTIC_ORBIT_SECONDS, MAGNIFICATION, REAL_GALACTIC_YEAR_MILLIONS, REAL_ORBIT_SPEEDS, SECONDS_PER_EARTH_YEAR, earthOrbits, galacticOrbits, isAhead, pathLength, planetIndex,
@@ -287,8 +288,7 @@ export class JourneyControls {
     this.scene.showTrails = this.toggles.trails.input.checked;
     this.scene.showSunPath = this.toggles.sunPath.input.checked;
     this.scene.showPlanes = this.toggles.planes.input.checked;
-    this.observer = new IntersectionObserver(([entry]) => { this.visible = entry.isIntersecting; });
-    this.observer.observe(this.host);
+    this.observer = watchOnScreen(this.host, (visible) => { this.visible = visible; });
     this.active = true;
     this.galaxy.journey = this;
     this.setPlaying(true);
