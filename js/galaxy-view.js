@@ -3,9 +3,20 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GALACTIC_FEATURES } from './data/galactic-features.js';
 import { localizedFeature } from './i18n/galactic-features-pt.js';
 import { GalacticBlackHole } from './galactic-black-hole.js';
+import { GalaxySky } from './galaxy-sky.js';
+import { LENS_QUALITY } from './black-hole-lens.js';
+import { BLACK_HOLE_TEXT } from './data/black-hole-text.js';
+import { watchOnScreen } from './on-screen.js';
 
 const TAU = Math.PI * 2;
 const OVERVIEW = [0, 65, 83];
+const WIDE_FOV = 46;
+// A longer lens for the close-up, so the disk stays in proportion to the shadow.
+const CLOSEUP_FOV = 30;
+const CLOSEUP_VIEWS = { cinematic: [1.8, 0.82, 8.3], threeQuarter: [3.6, 3.9, 6.2], face: [0, 8.2, 1.6], edge: [0, 0.14, 7.6] };
+// Frames slower than this, on average, lower the close-up's quality one level.
+const SLOW_FRAME = 1 / 38;
+const QUALITY_WINDOW = 45;
 const warpHeight = (r, a) => 5.5 * Math.pow(Math.max(0, (r - 23) / 27), 1.7) * Math.sin(a - 0.5);
 
 /** An illustrative volume, not a reconstruction of Gaia catalogue positions. */
@@ -22,11 +33,18 @@ export class GalaxyView {
     this.seed = 721;
     this.available = false;
     this.journey = null;
+    this.language = 'en';
+    this.flowPlaying = true;
+    this.flowSpeed = 1;
+    this.flowHeldByMotion = false;
+    this.onScreen = true;
     this.status = document.querySelector('#galaxy-status');
     this.bindUI();
     try {
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+      this.compact = window.matchMedia('(pointer: coarse)').matches;
+      this.basePixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+      this.renderer.setPixelRatio(this.basePixelRatio);
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.setClearColor(0x02040b);
       this.renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -39,7 +57,12 @@ export class GalaxyView {
       this.controls.minDistance = 2;
       this.controls.maxDistance = 340;
       this.controls.addEventListener('start', () => { this.transition = null; this.viewPreset = null; this.stopTour(); });
+      this.sky = new GalaxySky(this.renderer, this.compact);
+      this.scene.add(this.sky.mesh);
       this.createGalaxy();
+      this.qualityLevel = this.compact ? 1 : 0;
+      this.qualityFrames = 0; this.qualityTime = 0;
+      this.blackHole.lens.setSteps(LENS_QUALITY[this.qualityLevel].steps);
       this.createLabels();
       this.bindPicking();
       this.renderer.domElement.addEventListener('webglcontextlost', (event) => {
@@ -50,6 +73,7 @@ export class GalaxyView {
       this.resize();
       this.observer = new ResizeObserver(() => this.resize());
       this.observer.observe(container);
+      this.visibility = watchOnScreen(container, (onScreen) => { this.onScreen = onScreen; });
       this.status.textContent = 'Drag to orbit · scroll to zoom · right-drag to pan · click a label to explore';
     } catch (error) {
       console.error('Galactic explorer could not start.', error);
@@ -64,7 +88,7 @@ export class GalaxyView {
     return this.seed / 4294967296;
   }
 
-  pointCloud(count, sample, size, opacity = 1) {
+  pointCloud(count, sample, size, opacity = 1, dark = false) {
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const color = new THREE.Color();
@@ -79,7 +103,7 @@ export class GalaxyView {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     const material = new THREE.ShaderMaterial({
       uniforms: { uSize: { value: size }, uOpacity: { value: opacity }, uPixels: { value: 600 } },
-      vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexColors: true, transparent: true, depthWrite: false, blending: dark ? THREE.NormalBlending : THREE.AdditiveBlending,
       vertexShader: `uniform float uSize; uniform float uPixels; varying vec3 vColor;
         void main() { vColor = color; vec4 mv = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mv; gl_PointSize = clamp(uSize * uPixels / max(1.0, -mv.z), 1.0, 48.0); }`,
@@ -89,35 +113,38 @@ export class GalaxyView {
           gl_FragColor = vec4(vColor, a * uOpacity); }`,
     });
     const cloud = new THREE.Points(geometry, material);
+    if (dark) cloud.renderOrder = 1;
     cloud.userData.baseOpacity = opacity;
     this.scene.add(cloud);
     return cloud;
   }
 
   createGalaxy() {
-    const compact = window.matchMedia('(pointer: coarse)').matches;
+    const { compact } = this;
     this.clouds = [];
+    // Most stars are faint and a few are bright, as in a real field, so structure shows instead of a uniform haze.
+    const starLight = (low, high) => low + (high - low) * Math.pow(this.random(), 3.2);
     // A warm diffuse disk and blue young stars along four schematic spiral arms.
     this.clouds.push(this.pointCloud(compact ? 16000 : 34000, (i) => {
       const r = 4 + Math.pow(this.random(), 0.7) * 46;
       const inArm = this.random() < 0.72;
       const a = inArm ? i % 4 * TAU / 4 + Math.log(r / 5) * 2.65 + (this.random() + this.random() - 1) * 0.48 : this.random() * TAU;
-      return { position: [r * Math.cos(a), warpHeight(r, a) + (this.random() + this.random() - 1) * (0.4 + r * 0.018), r * Math.sin(a)], color: inArm ? (this.random() < 0.12 ? '#ed9bbb' : '#8db9f0') : '#bbae9c', brightness: 0.45 + this.random() * 0.6 };
-    }, 0.36, 0.8));
+      return { position: [r * Math.cos(a), warpHeight(r, a) + (this.random() + this.random() - 1) * (0.4 + r * 0.018), r * Math.sin(a)], color: inArm ? (this.random() < 0.1 ? '#e8a3bd' : '#9ec3f2') : '#b5ab9f', brightness: starLight(0.42, 1.9) };
+    }, 0.27, 1));
     this.clouds.push(this.pointCloud(compact ? 5000 : 11000, () => {
       const r = Math.sqrt(this.random()) * 46;
       const a = this.random() * TAU;
-      return { position: [r * Math.cos(a), warpHeight(r, a) + (this.random() + this.random() - 1) * 4, r * Math.sin(a)], color: '#c6a98a', brightness: 0.3 + this.random() * 0.4 };
-    }, 0.5, 0.3));
+      return { position: [r * Math.cos(a), warpHeight(r, a) + (this.random() + this.random() - 1) * 4, r * Math.sin(a)], color: '#b9a48e', brightness: starLight(0.25, 1) };
+    }, 0.34, 0.34));
     this.clouds.push(this.pointCloud(compact ? 4500 : 10000, () => {
       const r = Math.pow(this.random(), 1.4) * 10;
       const a = this.random() * TAU;
       const z = this.random() * 2 - 1;
-      return { position: [r * Math.sqrt(1 - z * z) * Math.cos(a), r * z * 0.48, r * Math.sqrt(1 - z * z) * Math.sin(a)], color: '#ffe0ab', brightness: 0.5 + this.random() * 0.5 };
-    }, 0.48, 0.65));
+      return { position: [r * Math.sqrt(1 - z * z) * Math.cos(a), r * z * 0.48, r * Math.sqrt(1 - z * z) * Math.sin(a)], color: this.random() < 0.35 ? '#ffc58e' : '#f6dcb6', brightness: starLight(0.3, 1.5) };
+    }, 0.25, 0.5));
     this.clouds.push(this.pointCloud(compact ? 2500 : 6000, () => ({
-      position: [(this.random() + this.random() - 1) * 15, (this.random() - 0.5) * 1.5, (this.random() + this.random() - 1) * 2.8], color: '#ffd4a0',
-    }), 0.38, 0.65));
+      position: [(this.random() + this.random() - 1) * 15, (this.random() - 0.5) * 1.5, (this.random() + this.random() - 1) * 2.8], color: '#f3cda2', brightness: starLight(0.25, 1.3),
+    }), 0.25, 0.42));
     this.clouds.push(this.pointCloud(compact ? 1200 : 3000, () => {
       const r = 12 + this.random() * 65;
       const a = this.random() * TAU;
@@ -125,12 +152,31 @@ export class GalaxyView {
       return { position: [r * Math.sqrt(1 - z * z) * Math.cos(a), r * z * 0.7, r * Math.sqrt(1 - z * z) * Math.sin(a)], color: '#c7b6a2' };
     }, 0.21, 0.4));
     // Pink clusters evoke H II regions without claiming measured cloud positions.
-    this.clouds.push(this.pointCloud(compact ? 1100 : 2400, (i) => {
+    this.clouds.push(this.pointCloud(compact ? 700 : 1500, (i) => {
       const cluster = i % 24;
       const r = 13 + (cluster % 6) * 6;
       const a = cluster % 4 * TAU / 4 + Math.log(r / 5) * 2.65;
-      return { position: [r * Math.cos(a) + (this.random() - 0.5) * 2.4, warpHeight(r, a) + (this.random() - 0.5) * 1.4, r * Math.sin(a) + (this.random() - 0.5) * 2.4], color: '#e679b3' };
-    }, 0.8, 0.28));
+      const spread = () => (this.random() + this.random() - 1) * 2.8;
+      return { position: [r * Math.cos(a) + spread(), warpHeight(r, a) + spread() * 0.4, r * Math.sin(a) + spread()], color: i % 5 === 0 ? '#79a6d8' : '#d9709f', brightness: starLight(0.35, 1) };
+    }, 0.8, 0.2));
+    // A faint glow of unresolved stars, so the arms and the bulge read as structure and not only as points.
+    this.clouds.push(this.pointCloud(compact ? 600 : 1300, (i) => {
+      const r = 5 + Math.pow(this.random(), 0.8) * 42;
+      const a = i % 4 * TAU / 4 + Math.log(r / 5) * 2.65 + (this.random() + this.random() - 1) * 0.3;
+      return { position: [r * Math.cos(a), warpHeight(r, a), r * Math.sin(a)], color: i % 7 === 0 ? '#a8618a' : '#4f6fae' };
+    }, 4.2, 0.09));
+    this.clouds.push(this.pointCloud(compact ? 220 : 420, () => {
+      const r = Math.pow(this.random(), 1.6) * 8;
+      const a = this.random() * TAU;
+      return { position: [r * Math.cos(a) * 1.5, (this.random() - 0.5) * r * 0.5, r * Math.sin(a) * 0.8], color: '#c98a52' };
+    }, 5, 0.1));
+    // Dark dust along the inner edge of each arm and across the bulge.
+    this.clouds.push(this.pointCloud(compact ? 1100 : 2400, (i) => {
+      const onBulge = i % 6 === 0;
+      const r = onBulge ? 2 + this.random() * 9 : 6 + Math.pow(this.random(), 0.75) * 40;
+      const a = onBulge ? this.random() * TAU : i % 4 * TAU / 4 + Math.log(r / 5) * 2.65 - 0.34 + (this.random() + this.random() - 1) * 0.3;
+      return { position: [r * Math.cos(a), warpHeight(r, a) + (this.random() - 0.5) * 0.35, r * Math.sin(a)], color: '#0a0607' };
+    }, 3.2, 0.065, true));
     this.darkHalo = new THREE.Group();
     for (let i = 0; i < 3; i += 1) {
       const points = Array.from({ length: 161 }, (_, j) => new THREE.Vector3(Math.cos(j / 160 * TAU) * 96, 0, Math.sin(j / 160 * TAU) * 96));
@@ -146,8 +192,8 @@ export class GalaxyView {
     this.scene.add(this.orbit);
     this.sun = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffe6a4 }));
     this.scene.add(this.sun);
-    this.blackHole = new GalacticBlackHole();
-    this.scene.add(this.blackHole.group);
+    this.blackHole = new GalacticBlackHole(this.sky.texture);
+    this.scene.add(this.blackHole.group, this.blackHole.lens.mesh);
     this.highlight = new THREE.Mesh(new THREE.RingGeometry(0.65, 0.78, 48), new THREE.MeshBasicMaterial({ color: 0x8cddff, side: THREE.DoubleSide, transparent: true, opacity: 0.9, depthTest: false }));
     this.highlight.visible = false;
     this.scene.add(this.highlight);
@@ -195,6 +241,7 @@ export class GalaxyView {
       else { this.stopTour(); if (this.selected === 'dark-halo') this.closePanel(); }
     });
     document.querySelector('#galaxy-panel-close').addEventListener('click', () => this.closePanel());
+    this.bindCloseupControls();
     document.querySelector('#galaxy-fullscreen').addEventListener('click', async () => {
       const section = document.querySelector('#galaxy-panel');
       try {
@@ -207,6 +254,55 @@ export class GalaxyView {
       document.querySelector('#galaxy-fullscreen').textContent = document.fullscreenElement === document.querySelector('#galaxy-panel') ? 'Exit fullscreen' : 'Fullscreen';
       this.resize();
     });
+  }
+
+  bindCloseupControls() {
+    this.closeupControls = document.querySelector('#black-hole-controls');
+    this.flowButton = document.querySelector('#black-hole-play');
+    this.flowButton.addEventListener('click', () => {
+      if (!this.globalPlaying) { this.resumeGlobal?.(); this.flowPlaying = true; } else this.flowPlaying = !this.flowPlaying;
+      this.flowHeldByMotion = false;
+      this.updateCloseupControls();
+    });
+    this.closeupControls.querySelectorAll('[data-flow-speed]').forEach((button) => button.addEventListener('click', () => { this.flowSpeed = Number(button.dataset.flowSpeed); this.updateCloseupControls(); }));
+    this.closeupControls.querySelectorAll('[data-closeup-view]').forEach((button) => button.addEventListener('click', () => this.setCloseupView(button.dataset.closeupView)));
+    document.querySelector('#black-hole-reset').addEventListener('click', () => this.setCloseupView('cinematic'));
+    this.renderCloseupText();
+  }
+
+  setCloseupView(name) {
+    if (!this.available || !this.blackHole.closeup) return;
+    this.closeupView = name;
+    const offset = new THREE.Vector3(...CLOSEUP_VIEWS[name]).multiplyScalar(Math.max(1, 1.35 / this.camera.aspect));
+    this.viewPreset = null;
+    this.moveCamera(offset, new THREE.Vector3());
+    this.updateCloseupControls();
+  }
+
+  // People who ask for less motion get the destination without the flight.
+  moveCamera(position, target) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.transition = null; this.camera.position.copy(position); this.controls.target.copy(target);
+    } else this.transition = { position, target };
+  }
+
+  renderCloseupText() {
+    const text = BLACK_HOLE_TEXT[this.language] ?? BLACK_HOLE_TEXT.en;
+    this.closeupControls.setAttribute('aria-label', text.controlsLabel);
+    this.closeupControls.querySelectorAll('[data-closeup-text]').forEach((node) => { node.textContent = text[node.dataset.closeupText]; });
+    this.closeupControls.querySelectorAll('[data-flow-speed]').forEach((button) => { button.textContent = `${text.number(button.dataset.flowSpeed)}×`; });
+    this.updateCloseupControls();
+  }
+
+  updateCloseupControls() {
+    const text = BLACK_HOLE_TEXT[this.language] ?? BLACK_HOLE_TEXT.en;
+    const held = this.globalPlaying === false;
+    this.flowButton.textContent = held ? text.resume : this.flowPlaying ? text.pause : text.play;
+    this.flowButton.setAttribute('aria-pressed', String(!this.flowPlaying || held));
+    this.closeupControls.querySelectorAll('[data-flow-speed]').forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.flowSpeed) === this.flowSpeed)));
+    this.closeupControls.querySelectorAll('[data-closeup-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.closeupView === this.closeupView)));
+    const note = document.querySelector('#black-hole-note');
+    note.textContent = this.flowHeldByMotion ? text.reducedMotion : ''; note.hidden = !this.flowHeldByMotion;
   }
 
   closePanel() {
@@ -265,6 +361,7 @@ export class GalaxyView {
       const option = this.selector?.querySelector(`option[value="${feature.id}"]`);
       if (option) option.textContent = label;
     });
+    this.renderCloseupText();
     if (this.selected && !document.querySelector('#galaxy-info').hidden) this.renderFeature(GALACTIC_FEATURES.find((item) => item.id === this.selected));
   }
 
@@ -288,6 +385,24 @@ export class GalaxyView {
     details.hidden = !feature.details;
     const sourceLink = document.querySelector('#galaxy-info-source');
     sourceLink.href = feature.source; sourceLink.textContent = feature.sourceLabel;
+    this.renderConcepts(source.id === 'black-hole');
+  }
+
+  renderConcepts(visible) {
+    const section = document.querySelector('#galaxy-info-concepts'); section.hidden = !visible;
+    if (!visible) return;
+    const text = BLACK_HOLE_TEXT[this.language] ?? BLACK_HOLE_TEXT.en;
+    section.querySelector('h3').textContent = text.conceptsTitle;
+    section.querySelector('dl').replaceChildren(...text.concepts.map((item) => {
+      const wrapper = document.createElement('div');
+      const term = document.createElement('dt'); term.textContent = item.label;
+      const definition = document.createElement('dd'); definition.append(`${item.text} `);
+      const link = document.createElement('a');
+      link.href = item.source; link.textContent = item.sourceLabel;
+      link.target = '_blank'; link.rel = 'noopener noreferrer';
+      definition.append(link); wrapper.append(term, definition);
+      return wrapper;
+    }));
   }
 
   selectFeature(id, focus = true, touring = false) {
@@ -307,10 +422,10 @@ export class GalaxyView {
       const button = document.querySelector('#galaxy-halo');
       button.textContent = 'Hide dark halo'; button.setAttribute('aria-pressed', 'true');
     }
+    if (id === 'black-hole' && focus) { this.setCloseupView('cinematic'); return; }
     if (focus) {
       const target = id === 'dark-halo' ? new THREE.Vector3() : this.anchors.get(id).position;
       const offset = new THREE.Vector3(...(feature.offset || [8, 13, 22]));
-      if (id === 'black-hole') offset.multiplyScalar(Math.max(1, 1 / this.camera.aspect));
       this.transition = { position: target.clone().add(offset), target: target.clone() };
     }
   }
@@ -330,11 +445,41 @@ export class GalaxyView {
   }
 
   setBlackHoleFocus(enabled) {
+    const changed = enabled !== Boolean(this.blackHole?.closeup);
     this.blackHole?.setCloseup(enabled);
+    if (changed && this.available) this.applyQuality();
+    this.closeupControls.hidden = !enabled;
+    if (changed && enabled && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { this.flowPlaying = false; this.flowHeldByMotion = true; }
+    if (!enabled) this.closeupView = null;
+    this.updateCloseupControls();
     this.container.classList.toggle('black-hole-closeup', enabled);
     const badge = document.querySelector('#galaxy-scale-badge');
     badge.hidden = !enabled;
     this.status.textContent = enabled ? 'Sagittarius A* close-up · greatly enlarged · drag to orbit the gas disk · Galaxy overview returns to the full galaxy' : 'Drag to orbit · scroll to zoom · right-drag to pan · click a label to explore';
+    this.onStatusChange?.();
+  }
+
+  applyQuality() {
+    const scale = this.blackHole.closeup ? LENS_QUALITY[this.qualityLevel].pixelScale : 1;
+    const cap = this.compact ? Math.min(this.basePixelRatio, 1.25) : this.basePixelRatio;
+    this.renderer.setPixelRatio((this.blackHole.closeup ? cap : this.basePixelRatio) * scale);
+    this.blackHole.lens.setSteps(LENS_QUALITY[this.qualityLevel].steps);
+    this.updatePointScale();
+  }
+
+  updatePointScale() {
+    const height = this.container.clientHeight * this.renderer.getPixelRatio();
+    this.clouds?.forEach((cloud) => { cloud.material.uniforms.uPixels.value = height; });
+  }
+
+  // Only frames with the close-up fully showing count, so a slow transition cannot lower quality.
+  watchQuality(delta) {
+    if (this.blackHole.lens.mix < 1 || delta > 0.25 || !this.onScreen) { this.qualityFrames = 0; this.qualityTime = 0; return; }
+    this.qualityFrames += 1; this.qualityTime += delta;
+    if (this.qualityFrames < QUALITY_WINDOW) return;
+    const slow = this.qualityTime / this.qualityFrames > SLOW_FRAME;
+    this.qualityFrames = 0; this.qualityTime = 0;
+    if (slow && this.qualityLevel < LENS_QUALITY.length - 1) { this.qualityLevel += 1; this.applyQuality(); }
   }
 
   stopTour() {
@@ -354,7 +499,13 @@ export class GalaxyView {
   update(delta, speed, isPlaying) {
     if (!this.available) return;
     // The journey runs its own clock and draws this same scene from its own cameras.
-    if (this.journey?.active) { this.blackHole.update(delta, this.journey.scene.views.main.camera, this.container.clientHeight * this.renderer.getPixelRatio()); this.journey.update(delta); return; }
+    if (this.journey?.active) {
+      this.blackHole.lens.mix = 0; this.blackHole.group.visible = true; this.sky.mesh.visible = false;
+      this.clouds.forEach((cloud) => { cloud.visible = true; });
+      this.blackHole.update(delta, this.journey.scene.views.main.camera);
+      this.journey.update(delta); return;
+    }
+    if (this.globalPlaying !== isPlaying) { this.globalPlaying = isPlaying; this.updateCloseupControls(); }
     if (isPlaying) this.phase += delta * speed * 0.105;
     this.updateSun();
     this.orbit.visible = this.showOrbit && !this.blackHole.closeup;
@@ -371,10 +522,24 @@ export class GalaxyView {
       this.controls.target.lerp(this.transition.target, alpha);
       if (this.camera.position.distanceTo(this.transition.position) < 0.02 && this.controls.target.distanceTo(this.transition.target) < 0.02) this.transition = null;
     }
+    const fov = this.blackHole.closeup ? CLOSEUP_FOV : WIDE_FOV;
+    if (this.camera.fov !== fov) {
+      this.camera.fov += (fov - this.camera.fov) * (1 - Math.exp(-delta * 3));
+      if (Math.abs(this.camera.fov - fov) < 0.02) this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
     this.controls.update(); this.camera.updateMatrixWorld();
-    this.blackHole.update(isPlaying ? delta * speed : 0, this.camera, this.container.clientHeight * this.renderer.getPixelRatio());
+    this.blackHole.update(isPlaying ? delta * speed : 0, this.camera);
+    const flowDelta = isPlaying && this.flowPlaying ? delta * this.flowSpeed : 0;
+    const lensMix = this.blackHole.updateCloseup(delta, flowDelta, this.camera, this.container.clientHeight * this.renderer.getPixelRatio());
+    this.watchQuality(delta);
+    // Once the close-up covers the view, everything behind it is skipped.
+    const covered = lensMix >= 1;
+    this.sky.mesh.visible = !covered;
+    this.sky.update(this.camera, this.container.clientHeight * this.renderer.getPixelRatio());
     this.clouds.forEach((cloud) => {
-      const targetOpacity = cloud.userData.baseOpacity * (this.blackHole.closeup ? 0.003 : 1);
+      cloud.visible = !covered;
+      const targetOpacity = cloud.userData.baseOpacity * (1 - lensMix);
       cloud.material.uniforms.uOpacity.value += (targetOpacity - cloud.material.uniforms.uOpacity.value) * (1 - Math.exp(-delta * 5));
     });
     const occupied = [];
@@ -382,12 +547,12 @@ export class GalaxyView {
     const ordered = [...this.anchors].sort(([a], [b]) => Number(b === this.selected) - Number(a === this.selected));
     ordered.forEach(([id, { button, position }]) => {
       const p = position.clone().project(this.camera);
-      button.hidden = !this.labelsVisible || (this.blackHole.closeup && id !== 'black-hole') || p.z < -1 || p.z > 1 || Math.abs(p.x) > 0.94 || Math.abs(p.y) > 0.9 || (id === 'dark-halo' && !this.darkHalo.visible);
+      button.hidden = !this.labelsVisible || this.blackHole.closeup || p.z < -1 || p.z > 1 || Math.abs(p.x) > 0.94 || Math.abs(p.y) > 0.9 || (id === 'dark-halo' && !this.darkHalo.visible);
       if (button.hidden) return;
       const x = (p.x + 1) * this.container.clientWidth / 2;
       const y = (1 - p.y) * this.container.clientHeight / 2;
       const labelY = id === 'black-hole'
-        ? y - (this.blackHole.closeup ? 105 : 34)
+        ? y - 34
         : id === 'sun'
           ? y - button.offsetHeight / 2 - 12
           : y;
@@ -403,6 +568,7 @@ export class GalaxyView {
       this.highlight.position.copy(this.anchors.get(this.selected).position);
       this.highlight.quaternion.copy(this.camera.quaternion);
     }
+    if (lensMix > 0 && !this.onScreen) return;
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -425,7 +591,7 @@ export class GalaxyView {
       this.controls.update();
     }
     this.renderer.setSize(width, height, false);
-    this.clouds?.forEach((cloud) => { cloud.material.uniforms.uPixels.value = height * this.renderer.getPixelRatio(); });
+    this.updatePointScale();
     this.journey?.resize();
   }
 }

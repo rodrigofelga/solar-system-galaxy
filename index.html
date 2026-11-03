@@ -78,9 +78,16 @@
         <div id="galaxy" class="galaxy-viewport" role="group" aria-label="Interactive 3D Milky Way. Drag to orbit, scroll or pinch to zoom, and right-drag or two-finger drag to pan. Use the controls below to explore structures.">
           <p id="galaxy-fallback" class="webgl-fallback" hidden></p>
           <span class="galaxy-badge">MILKY WAY <span>3D EXPLORER</span></span>
-          <span id="galaxy-scale-badge" class="galaxy-scale-badge" hidden>SAGITTARIUS A* · ENLARGED ILLUSTRATION<br>Gas, light ring, and wind are schematic</span>
+          <span id="galaxy-scale-badge" class="galaxy-scale-badge" hidden>SAGITTARIUS A* · ENLARGED ILLUSTRATION<br>Conceptual disk, not telescope footage</span>
         </div>
         <p id="galaxy-status" class="note galaxy-status" role="status">Starting the 3D galactic explorer…</p>
+        <div id="black-hole-controls" class="black-hole-controls" role="group" hidden>
+          <button type="button" id="black-hole-play" aria-pressed="false"></button>
+          <div class="black-hole-group"><span data-closeup-text="speedLabel"></span><button type="button" data-flow-speed="0.25"></button><button type="button" data-flow-speed="0.5"></button><button type="button" data-flow-speed="1"></button><button type="button" data-flow-speed="2"></button></div>
+          <div class="black-hole-group"><span data-closeup-text="viewLabel"></span><button type="button" data-closeup-view="cinematic" data-closeup-text="viewCinematic"></button><button type="button" data-closeup-view="threeQuarter" data-closeup-text="viewThreeQuarter"></button><button type="button" data-closeup-view="face" data-closeup-text="viewFace"></button><button type="button" data-closeup-view="edge" data-closeup-text="viewEdge"></button></div>
+          <button type="button" id="black-hole-reset" data-closeup-text="resetCamera"></button>
+          <p id="black-hole-note" class="note" hidden></p>
+        </div>
         <div class="controls galaxy-controls" aria-label="Galactic camera and anatomy controls">
           <button type="button" data-galaxy-view="overview">Galaxy overview</button>
           <button type="button" id="galaxy-black-hole">Explore black hole</button>
@@ -101,6 +108,7 @@
           <h2 id="galaxy-info-title"></h2>
           <p id="galaxy-info-description"></p>
           <p id="galaxy-info-fact" class="note"></p>
+          <section id="galaxy-info-concepts" class="galaxy-info-concepts" hidden><h3></h3><dl class="galaxy-info-details"></dl></section>
           <dl id="galaxy-info-details" class="galaxy-info-details" hidden></dl>
           <a id="galaxy-info-source" target="_blank" rel="noopener noreferrer">Read the research</a>
         </aside>

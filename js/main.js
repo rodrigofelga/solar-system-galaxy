@@ -95,7 +95,7 @@ const uiPairs = {
   'Disk thickness and outer warp are exaggerated for visibility. Drag to explore from any angle.': 'A espessura do disco e a deformação externa são exageradas para facilitar a visualização. Arraste para explorar de qualquer ângulo.',
   'Sagittarius A* close-up · greatly enlarged · drag to orbit the gas disk · Galaxy overview returns to the full galaxy': 'Sagittarius A* de perto · muito ampliado · arraste para orbitar o disco de gás · Visão geral da galáxia volta à galáxia completa',
   'SAGITTARIUS A* · ENLARGED ILLUSTRATION': 'SAGITTARIUS A* · ILUSTRAÇÃO AMPLIADA',
-  'Gas, light ring, and wind are schematic': 'O gás, o anel de luz e o vento são esquemáticos',
+  'Conceptual disk, not telescope footage': 'Disco conceitual, não uma filmagem de telescópio',
   'MILKY WAY': 'VIA LÁCTEA',
   '3D EXPLORER': 'EXPLORADOR 3D'
 };
@@ -263,6 +263,11 @@ const state = {
 };
 
 const galaxy = new GalaxyView(elements.galaxy);
+galaxy.onStatusChange = refreshLanguage;
+galaxy.resumeGlobal = () => {
+  state.isPlaying = true;
+  updatePlayButton();
+};
 
 let journey = null;
 const journeyButton = document.querySelector('#galaxy-journey');

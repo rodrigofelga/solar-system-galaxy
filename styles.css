@@ -165,6 +165,15 @@ p { margin: 0 0 18px; color: #aabbd2; }
 .galaxy-controls label { font-size: 12px; }
 .galaxy-info { position: relative; margin-top: 14px; padding: 20px; border: 1px solid #35577d; border-radius: 12px; background: linear-gradient(120deg, #10243b, #080f20); }
 .galaxy-info[hidden] { display: none; }
+.black-hole-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 10px; padding: 10px 12px; border: 1px solid #5a4630; border-radius: 10px; background: linear-gradient(120deg, #1d150e, #0b0d18); }
+.black-hole-controls[hidden], .black-hole-controls p[hidden], .galaxy-info-concepts[hidden] { display: none; }
+.black-hole-controls button { min-height: 38px; font-size: 12px; }
+.black-hole-controls button[aria-pressed="true"] { border-color: #e2bf85; color: #ffe0aa; background: #30291e; }
+.black-hole-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: #cdbda6; }
+.black-hole-group span { margin-right: 2px; }
+.black-hole-controls p { flex: 1 1 100%; margin: 0; }
+.galaxy-info-concepts h3 { margin: 16px 0 0; font-size: 15px; color: #ffe0aa; }
+.galaxy-info .galaxy-info-concepts dl a { color: #a3d7ff; }
 .galaxy-info h2 { margin: 0 32px 10px 0; font-size: 23px; }
 .galaxy-info p { max-width: 850px; line-height: 1.6; margin-bottom: 10px; }
 .galaxy-info a, .galaxy-disclaimer a { color: #a3d7ff; text-underline-offset: 3px; }

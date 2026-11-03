@@ -1,8 +1,15 @@
 import * as THREE from 'three';
+import { BlackHoleLens } from './black-hole-lens.js';
 
-/** Enlarged teaching model, not a relativistic renderer or an EHT reconstruction. */
+const smoothstep = THREE.MathUtils.smoothstep;
+// Camera distances over which the close-up replaces the small model seen from the galaxy.
+const LENS_FAR = 90;
+const LENS_NEAR = 42;
+const LENS_FADE_RATE = 5;
+
+/** The small model seen from the galaxy and the journey, plus the close-up. Neither is an EHT reconstruction. */
 export class GalacticBlackHole {
-  constructor() {
+  constructor(skyTexture) {
     this.group = new THREE.Group();
     this.group.name = 'Sagittarius A* (enlarged illustration)';
     this.time = 0;
@@ -52,59 +59,30 @@ export class GalacticBlackHole {
     this.lightRing = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), this.ringMaterial);
     this.lightRing.renderOrder = 3;
     this.group.add(this.lightRing);
-    this.createWind();
-    this.setCloseup(false);
+    this.group.scale.setScalar(0.55);
+    this.closeup = false;
+    this.lens = new BlackHoleLens(skyTexture);
   }
 
-  createWind() {
-    const count = 1800;
-    const params = new Float32Array(count * 3);
-    // Fixed seeds keep the shape reproducible between loads.
-    let seed = 1974;
-    const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-    for (let i = 0; i < count; i += 1) {
-      params[i * 3] = random() * Math.PI * 2;
-      params[i * 3 + 1] = random();
-      params[i * 3 + 2] = i % 2 ? 1 : -1;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
-    geometry.setAttribute('aParams', new THREE.BufferAttribute(params, 3));
-    this.windMaterial = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uPixels: { value: 600 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: `attribute vec3 aParams; uniform float uTime; uniform float uPixels; varying float vFade;
-        void main() {
-          float t = fract(aParams.y + uTime * 0.035);
-          float h = 0.8 + t * 6.5; float r = 0.4 + h * (0.2 + 0.25 * fract(aParams.x));
-          float a = aParams.x + t * 0.65;
-          vec3 p = vec3(cos(a) * r, h * aParams.z, sin(a) * r);
-          vec4 mv = modelViewMatrix * vec4(p, 1.0);
-          gl_Position = projectionMatrix * mv;
-          gl_PointSize = clamp(0.4 * uPixels / max(1.0, -mv.z), 1.0, 38.0);
-          vFade = sin(t * 3.141593) * 0.06;
-        }`,
-      fragmentShader: `varying float vFade;
-        void main() { float d = length(gl_PointCoord - 0.5) * 2.0;
-          if (d > 1.0) discard; gl_FragColor = vec4(0.35, 0.3, 0.95, exp(-d*d*5.0) * vFade); }`,
-    });
-    this.wind = new THREE.Points(geometry, this.windMaterial);
-    this.wind.frustumCulled = false;
-    this.group.add(this.wind);
-  }
+  setCloseup(enabled) { this.closeup = enabled; }
 
-  setCloseup(enabled) {
-    this.closeup = enabled;
-    this.group.scale.setScalar(enabled ? 1 : 0.55);
-    this.wind.visible = enabled;
-  }
-
-  update(simDelta, camera, pixels) {
+  update(simDelta, camera) {
     this.time += simDelta;
     this.diskMaterial.uniforms.uTime.value = this.time;
     this.ringMaterial.uniforms.uTime.value = this.time;
-    this.windMaterial.uniforms.uTime.value = this.time;
-    this.windMaterial.uniforms.uPixels.value = pixels;
     this.lightRing.quaternion.copy(camera.quaternion);
   }
+
+  // flowDelta is the close-up's own clock, so pausing the light leaves the camera free.
+  updateCloseup(delta, flowDelta, camera, height) {
+    const near = this.closeup ? 1 - smoothstep(camera.position.length(), LENS_NEAR, LENS_FAR) : 0;
+    let mix = this.lens.mix + (near - this.lens.mix) * (1 - Math.exp(-delta * LENS_FADE_RATE));
+    if (Math.abs(near - mix) < 0.002) mix = near;
+    this.lens.mix = mix;
+    this.group.visible = mix < 0.5;
+    this.lens.update(flowDelta, camera, height);
+    return mix;
+  }
+
+  dispose() { this.lens.dispose(); }
 }
