@@ -202,6 +202,7 @@ function setLanguage(language) {
   renderCrewSection(currentLanguage);
   journey?.setLanguage(currentLanguage);
   galaxy.setLanguage(currentLanguage);
+  missionControls.setLanguage(currentLanguage);
 
   if (state.selectedName) {
     renderPanel(state.selectedName);

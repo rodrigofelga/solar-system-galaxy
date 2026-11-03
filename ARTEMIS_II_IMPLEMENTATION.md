@@ -48,3 +48,7 @@ Browser suite: 13 passed, 0 failed. Uses the actual SolarSystemView.prototype.up
 Actual explorer: desktop and mobile-width toggle, flyby camera, progress, speed and trajectory controls exercised; no captured JavaScript/WebGL warnings or errors. Desktop screenshot: integrated-desktop-flyby.jpg. Mobile screenshot: integrated-mobile-flyby.jpg. Mobile viewport 390x844; document width and scroll width both 375, no horizontal overflow. Temporary viewport override reset. Physical touch hardware and frame-time/GPU benchmarks were not tested.
 
 Visual approval received; approved for deployment.
+
+## Language
+
+Every Artemis II string except the crew profiles is in `js/data/mission-text.js`, in English and Brazilian Portuguese. `ArtemisControls.setLanguage` rewrites only text, so playback, camera, progress and selection are untouched. Names, designations and numbers are the same in both languages (`tests/mission-text.test.mjs`).

@@ -4,6 +4,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { createOrion } from './orion-model.js';
 import { referenceBasis, displayState, integratedPosition, timeAtProgress, progressAtTime, clamp, PLAYBACK_SECONDS } from './trajectory.js';
+import { MISSION_TEXT } from '../data/mission-text.js';
 
 const OUTBOUND_COLOR = new THREE.Color(0x63b7cb);
 const RETURN_COLOR = new THREE.Color(0xd9916f);
@@ -17,15 +18,8 @@ const SAMPLE_GRID = 40000;
 const MAX_SAMPLE_LENGTH = 0.03;
 const MAX_SAMPLE_TURN = 0.035;
 
-export const MISSION_PHASES = [
-  { start: 0, title: 'Launch & initial Earth orbit', text: 'SLS lifts Orion from Earth. This opening segment illustrates launch and early Earth orbit; the local OEM does not cover ascent. The launch rocket is not carried along on the lunar journey.' },
-  { start: 0.12, title: 'High Earth orbit & checks', text: 'The crew checks life support, navigation, communications, and spacecraft handling before committing to deep space. Orion and its European Service Module travel together.' },
-  { start: 0.26, title: 'Translunar injection', text: 'A service-module engine burn sends Orion out of Earth orbit. The mission then coasts toward the Moon; there is no continuous engine flame.' },
-  { start: 0.30, title: 'Outbound lunar coast', text: 'The Moon moves ahead as Orion travels outward. The educational route turns with the existing accelerated lunar orbit so Orion meets the moving Moon. Its geometry is adjusted from NASA data, not an exact ephemeris reconstruction.' },
-  { start: 0.56, title: 'Lunar far-side flyby', text: 'Orion passes beyond the Moon and bends onto the return leg. A flyby is one passage, not insertion into a sustained lunar orbit, and no lunar landing takes place.' },
-  { start: 0.68, title: 'Free-return journey', text: 'The Earth–Moon gravitational geometry bends the spacecraft back toward Earth. Free return does not mean that navigation or small trajectory corrections are unnecessary.' },
-  { start: 0.94, title: 'Re-entry & splashdown', text: 'The service module is discarded. The crew capsule leads with its heat shield, slows in the atmosphere, and descends under parachutes. The final descent is an illustration beyond the OEM’s entry-interface endpoint.' },
-];
+// Each chapter's wording is in MISSION_TEXT.phases, in the same order.
+export const MISSION_PHASES = [{ start: 0 }, { start: 0.12 }, { start: 0.26 }, { start: 0.30 }, { start: 0.56 }, { start: 0.68 }, { start: 0.94 }];
 
 export class ArtemisMission {
   constructor(view, data) {
@@ -103,11 +97,20 @@ export class ArtemisMission {
 
   makeLabels() {
     this.overlay = document.querySelector('#mission-overlay'); this.labels = [];
-    for (const [id, text] of [['earth', 'Earth'], ['moon', 'Moon · moving'], ['orion', 'Orion · enlarged']]) {
+    for (const id of ['earth', 'moon', 'orion']) {
       const label = document.createElement(id === 'orion' ? 'button' : 'span');
-      label.className = `mission-tag mission-tag--${id}`; label.textContent = text;
-      if (id === 'orion') { label.type = 'button'; label.setAttribute('aria-label', 'Select and follow Orion'); label.addEventListener('click', () => this.setCamera('follow')); }
+      label.className = `mission-tag mission-tag--${id}`;
+      if (id === 'orion') { label.type = 'button'; label.addEventListener('click', () => this.setCamera('follow')); }
       this.overlay.append(label); this.labels.push({ id, label, world: new THREE.Vector3() });
+    }
+    this.setLanguage('en');
+  }
+
+  setLanguage(language) {
+    const text = (MISSION_TEXT[language] ?? MISSION_TEXT.en).labels;
+    for (const { id, label } of this.labels) {
+      label.textContent = text[id];
+      if (id === 'orion') label.setAttribute('aria-label', text.orionAction);
     }
   }
 
